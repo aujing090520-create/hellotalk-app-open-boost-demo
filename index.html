@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>HelloTalk · 开屏推荐 Demo</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="styles.css?v=photo-source-shape" />
+  </head>
+  <body>
+    <main class="workbench">
+      <section class="demo-stage" aria-label="开屏推荐 Demo">
+        <div class="phone-shell">
+          <div class="phone" id="phone">
+            <div class="app" id="app" aria-live="polite"></div>
+          </div>
+        </div>
+      </section>
+      <aside class="control-panel" id="controlPanel">
+        <div class="control-heading">
+          <p class="eyebrow">互动 Demo</p>
+          <h1>开屏推荐</h1>
+          <p>加热中心 · 扁平化配置流程</p>
+        </div>
+        <div class="control-section">
+          <p class="control-label">体验身份</p>
+          <div class="control-segment" role="group" aria-label="体验身份">
+            <button class="control-choice is-active" data-control="plus">Plus 用户</button>
+            <button class="control-choice" data-control="normal">普通用户</button>
+          </div>
+        </div>
+        <div class="control-section">
+          <p class="control-label">快速查看状态</p>
+          <button class="control-action" data-control="create-random">模拟随机投放中</button>
+          <button class="control-action" data-control="create-designated">模拟指定投放中</button>
+          <button class="control-action" data-control="finish-latest">结束最新任务</button>
+        </div>
+        <div class="control-section review-control">
+          <label class="switch-row">
+            <span>评审映射</span>
+            <input id="reviewToggle" type="checkbox" />
+            <i></i>
+          </label>
+          <p>显示 FR 编号、规则卡和页面连线。</p>
+        </div>
+        <div id="rulePanel" class="rule-panel" hidden></div>
+      </aside>
+    </main>
+    <svg id="connectorLayer" class="connector-layer" aria-hidden="true"></svg>
+    <script src="app.js?v=photo-source-shape"></script>
+  </body>
+</html>

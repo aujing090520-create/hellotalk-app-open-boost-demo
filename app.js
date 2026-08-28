@@ -41,6 +41,10 @@ const state = {
   activeTasks: [],
   records: [...initialRecords],
   modeHelp: null,
+  previewItem: null,
+  previewOrigin: null,
+  visitorTask: null,
+  visitorOrigin: null,
   selectedRule: null
 };
 
@@ -66,9 +70,9 @@ function renderMain() {
   const banner = latest ? (() => {
     const copy = taskCopy(latest);
     const progress = latest.type === 'random' ? `<i class="task-progress" aria-hidden="true"><b style="width:${Math.min(100, Math.round(latest.shown / latest.total * 100))}%"></b></i>` : '';
-    return `<button class="task-banner" aria-label="查看进行中投放详情" data-action="nav" data-target="details" data-rule-target="banner">
-      ${anchor('banner', '2')}<i class="banner-dot"></i><span class="banner-text"><strong>${copy.title}</strong><span>${copy.detail}</span>${progress}</span><i class="chevron">›</i>
-    </button>`;
+    return `<div class="task-banner" data-rule-target="banner">
+      ${anchor('banner', '2')}<button class="task-banner-main" aria-label="查看进行中投放详情" data-action="open-active-task"><i class="banner-dot"></i><span class="banner-text"><strong>${copy.title}</strong><span>${copy.detail}</span>${progress}</span></button><button class="task-preview" aria-label="预览开屏效果" data-action="open-latest-preview">预览</button>
+    </div>`;
   })() : '';
   const hero = '<section class="open-cover-banner" aria-label="开屏推荐介绍"><div class="banner-portrait" aria-hidden="true"><b><i></i>HelloTalk</b><span class="banner-portrait-photo"></span><em><i>✦</i> 今日开屏人物</em></div><div class="open-cover-copy"><span>开屏推荐</span><strong>让新朋友<br>第一眼看见你</strong><p>打开 App，就有机会遇见你</p><i class="banner-benefit">专属开屏封面</i></div></section>';
   const ready = state.photoSelected && state.templateSelected;
@@ -100,8 +104,8 @@ function renderMain() {
 function renderTemplateSheet() {
   const copies = ['嘿，很高兴见到你！人生总要有几次主动，何不从现在开始？', '愿你今天的心情，也和这次相遇一样明亮。', '第一眼很短，认识你可以很长。'];
   return `<div class="overlay template-overlay"><section class="template-sheet${state.overlayEntered ? '' : ' is-entering'}" role="dialog" aria-modal="true" aria-labelledby="template-sheet-title"><i class="sheet-handle"></i><header class="template-sheet-head"><h2 id="template-sheet-title">选择风格</h2><button data-action="overlay-close" aria-label="关闭">×</button></header><main class="template-sheet-content">
-    <section class="template-preview" data-rule-target="template">${anchor('template', '4')}<div class="splash-art-preview"><i class="selected-photo style-${state.template}"></i><i class="sparkle sparkle-large">✦</i><i class="sparkle sparkle-small">✦</i><span class="art-note">图片仅用于展示头像风格，最终以生成结果为准</span></div><div class="preview-copy"><strong>${copies[state.copy]}</strong><button data-action="refresh-copy"><i>↻</i> 换一换</button></div></section>
-    <section class="section style-section"><div class="style-heading"><div><h3 class="section-label">选择图片风格</h3><p class="style-name">${styleNames[state.template]}</p></div><span>同一照片 · 不同风格</span></div><div class="template-rail">${styleNames.map((name, index) => `<button class="template style-${index} ${state.template === index ? 'is-selected' : ''}" data-action="template" data-template="${index}" aria-label="${name}"><i class="template-visual"></i></button>`).join('')}</div></section>
+    <section class="template-preview" data-rule-target="template">${anchor('template', '4')}<span class="splash-preview-label">开屏界面预览</span><div class="splash-art-preview"><section class="mini-splash-screen"><div class="mini-splash-brand"><i></i>HelloTalk</div><i class="selected-photo style-${state.template}"></i><div class="mini-splash-copy"><strong>Hi，很高兴认识你</strong><span>${copies[state.copy]}</span></div><i class="mini-splash-action">打个招呼</i></section></div><div class="template-copy-line"><span>${copies[state.copy]}</span><button data-action="refresh-copy" aria-label="换一句开屏文案">↻</button></div></section>
+    <section class="section style-section"><div class="style-heading"><p class="style-name">${styleNames[state.template]}</p></div><div class="template-rail">${styleNames.map((name, index) => `<button class="template style-${index} ${state.template === index ? 'is-selected' : ''}" data-action="template" data-template="${index}" aria-label="${name}"><i class="template-visual"></i></button>`).join('')}</div></section>
   </main><footer class="template-sheet-footer"><button class="primary" data-action="cover-done">完成</button></footer></section></div>`;
 }
 
@@ -114,8 +118,11 @@ function renderFriends() {
   return `${statusBar()}<section class="screen subpage"><header class="page-head">${backButton()}<h2>选择指定语伴</h2><span class="head-icon"></span></header><main class="sub-content"><input class="friend-search" placeholder="搜索互关语伴" aria-label="搜索互关语伴" /><div class="friend-list">${friends.map(friend => `<button class="friend" data-action="friend" data-name="${friend.name}" data-initial="${friend.initial}" data-class="${friend.className}" data-active="${friend.active}"><span class="avatar ${friend.className}">${friend.initial}</span><span class="friend-info"><strong>${friend.name}</strong><span>${friend.note}</span></span><i class="${friend.active ? 'online' : 'offline'}"></i><i class="chevron">›</i></button>`).join('')}</div></main></section>`;
 }
 
-function renderDetails() {
-  return `${statusBar()}<section class="screen subpage"><header class="page-head">${backButton()}<h2>投放详情</h2><button class="right-link" data-action="open-records">投放记录 ›</button></header><main><section class="section"><h3 class="section-label" style="padding:0 16px">进行中（${state.activeTasks.length}）</h3><div class="detail-list">${state.activeTasks.length ? state.activeTasks.map(task => { const copy = taskCopy(task); return `<div class="task-row"><i class="task-thumb"></i><span class="task-info"><strong>${task.type === 'random' ? '随机推荐' : `指定给 ${task.name}`}</strong><span>${copy.detail}</span></span><em class="status-pill">${copy.title}</em></div>`; }).join('') : '<div class="empty">暂无进行中任务</div>'}</div></section></main></section>`;
+function renderSplashPreview() {
+  const task = state.previewItem || state.activeTasks[0] || { photoSource: state.photoSource, style: state.template, copy: state.copy };
+  const copies = ['很高兴认识你，愿这次相遇让今天更明亮。', '愿你今天的心情，也和这次相遇一样明亮。', '第一眼很短，认识你可以很长。'];
+  const imageClass = task.photoSource === 'avatar' ? 'is-avatar' : `is-album style-${task.style}`;
+  return `${statusBar()}<section class="screen splash-preview-page"><header class="page-head"><button class="head-icon" data-action="preview-back" aria-label="返回">‹</button><h2>预览开屏效果</h2><span class="head-icon"></span></header><main class="splash-preview-content"><p>这是其他用户打开 HelloTalk 时看到的效果</p><section class="recipient-splash" aria-label="开屏效果预览"><div class="recipient-status"><span>15:07</span><span>◒ ◒ ▭</span></div><div class="recipient-brand"><i></i>HelloTalk</div><i class="recipient-cover ${imageClass}"></i><div class="recipient-copy"><strong>Hi，很高兴认识你</strong><span>${copies[task.copy || 0]}</span></div><button class="recipient-action">打个招呼</button></section><p class="splash-preview-note">开屏文案将按对方的界面语言展示</p></main></section>`;
 }
 
 function renderRecords() {
@@ -123,11 +130,34 @@ function renderRecords() {
 }
 
 function renderHistorySheet() {
-  const coverConfig = (record) => `<div class="history-cover-config"><i class="history-cover-preview ${record.photoSource === 'album' ? `is-album style-${record.style}` : 'is-avatar'}"></i><span><small>开屏封面</small><strong>${record.photoSource === 'album' ? '照片' : '头像'} · ${styleNames[record.style]}</strong></span></div>`;
-  const recordCard = (record) => record.type === 'random'
-    ? `<article class="history-card history-random"><header><time>${record.date}</time><span class="history-mode">随机推荐</span><em>${record.status}</em></header>${coverConfig(record)}<div class="history-metrics"><div><span>已展示人数</span><strong>${record.shown}</strong><small>人</small></div><div><span>访客数</span><strong>${record.visitors}</strong><small>人</small></div></div><footer><button class="history-copy" data-action="copy-record">复制本次条件</button><button class="history-repeat" data-action="repeat-random">再次推荐</button></footer></article>`
-    : `<article class="history-card history-designated"><header><time>${record.date}</time><span class="history-mode">指定语伴</span><em class="${record.status === '已展示' ? 'is-success' : 'is-muted'}">${record.status}</em></header>${coverConfig(record)}<div class="history-partner"><span class="avatar ${record.className}">${record.initial}</span><div><span>展示对象</span><strong>${record.name}</strong></div><i></i><div><span>投放状态</span><strong>${record.status}</strong></div></div><p>${record.detail}</p><footer><button class="history-copy" data-action="copy-record">复制本次条件</button><button class="history-repeat" data-action="repeat-designated" data-name="${record.name}" data-initial="${record.initial}" data-class="${record.className}">再次推荐</button></footer></article>`;
+  const coverConfig = (record, index) => `<button class="history-cover-config" data-action="open-preview" data-preview-source="record" data-preview-index="${index}"><i class="history-cover-preview ${record.photoSource === 'album' ? `is-album style-${record.style}` : 'is-avatar'}"></i><span><small>开屏封面</small><strong>${record.photoSource === 'album' ? '照片' : '头像'} · ${styleNames[record.style]}</strong></span><i class="chevron">›</i></button>`;
+  const recordCard = (record, index) => record.type === 'random'
+    ? `<article class="history-card history-random"><header><time>${record.date}</time><span class="history-mode">随机推荐</span><em>${record.status}</em></header>${coverConfig(record, index)}<div class="history-metrics"><div><span>已展示人数</span><strong>${record.shown}</strong><small>人</small></div><button class="history-visitor-metric" data-action="open-visitors" data-visitor-source="record" data-visitor-index="${index}" aria-label="查看 ${record.visitors} 位看过封面的用户"><span>访客数 <i>›</i></span><strong>${record.visitors}</strong><small>人</small></button></div><footer><button class="history-copy" data-action="copy-record">复制本次条件</button><button class="history-repeat" data-action="repeat-random">再次推荐</button></footer></article>`
+    : `<article class="history-card history-designated"><header><time>${record.date}</time><span class="history-mode">指定语伴</span><em class="${record.status === '已展示' ? 'is-success' : 'is-muted'}">${record.status}</em></header>${coverConfig(record, index)}<div class="history-partner"><span class="avatar ${record.className}">${record.initial}</span><div><span>展示对象</span><strong>${record.name}</strong></div><i></i><div><span>投放状态</span><strong>${record.status}</strong></div></div><p>${record.detail}</p><footer><button class="history-copy" data-action="copy-record">复制本次条件</button><button class="history-repeat" data-action="repeat-designated" data-name="${record.name}" data-initial="${record.initial}" data-class="${record.className}">再次推荐</button></footer></article>`;
   return `<div class="overlay history-overlay"><section class="history-sheet${state.overlayEntered ? '' : ' is-entering'}" role="dialog" aria-modal="true" aria-labelledby="history-sheet-title"><i class="sheet-handle"></i><header class="history-sheet-head"><button data-action="overlay-close" aria-label="关闭">×</button><h2 id="history-sheet-title">投放记录</h2><span></span></header><main class="history-list" data-rule-target="records">${anchor('records', '7')}${anchor('records', '8')}${state.records.map(recordCard).join('')}</main></section></div>`;
+}
+
+function renderActiveTasksSheet() {
+  const taskCard = (task, index) => {
+    const copy = taskCopy(task);
+    const imageClass = task.photoSource === 'album' ? `is-album style-${task.style}` : 'is-avatar';
+    if (task.type !== 'random') return `<button class="active-task-card" data-action="open-preview" data-preview-source="task" data-preview-index="${index}"><i class="history-cover-preview ${imageClass}"></i><span><strong>指定给 ${task.name}</strong><small>${copy.detail}</small></span><em>${copy.title}</em><i class="chevron">›</i></button>`;
+    return `<article class="active-task-card active-random-card"><button class="active-task-preview" data-action="open-preview" data-preview-source="task" data-preview-index="${index}" aria-label="预览随机推荐开屏效果"><i class="history-cover-preview ${imageClass}"></i><span><strong>随机推荐</strong><small>正在向匹配用户推荐</small></span><em>${copy.title}</em><i class="chevron">›</i></button><div class="active-live-metrics"><span><small>已展示人数</small><strong>${task.shown}<i> / ${task.total} 人</i></strong></span><button data-action="open-visitors" data-visitor-source="task" data-visitor-index="${index}" aria-label="查看 ${task.visitors} 位看过封面的用户"><small>访客数 <i>›</i></small><strong>${task.visitors}<i> 人</i></strong></button></div></article>`;
+  };
+  return `<div class="overlay history-overlay"><section class="active-tasks-sheet${state.overlayEntered ? '' : ' is-entering'}" role="dialog" aria-modal="true" aria-labelledby="active-tasks-title"><i class="sheet-handle"></i><header class="history-sheet-head"><button data-action="overlay-close" aria-label="关闭">×</button><h2 id="active-tasks-title">投放详情</h2><span></span></header><main class="active-tasks-list"><p>${state.activeTasks.length > 1 ? `进行中（${state.activeTasks.length}）` : '进行中'}</p>${state.activeTasks.map(taskCard).join('')}</main></section></div>`;
+}
+
+function renderVisitorsSheet() {
+  const task = state.visitorTask;
+  const visitors = [
+    ['Rinn', '♀ 24', 'CN ⇄ JP', '台北市，中国', 'style-0'],
+    ['欧尼', '♀ 23', 'CN ⇄ JP', '上海市，中国', 'style-1'],
+    ['Luther', '♂ 23', 'CN ⇄ JP', '中野区，日本', 'style-2'],
+    ['Ava', '♀ 25', 'EN ⇄ CN', '温哥华，加拿大', 'style-3'],
+    ['Richie', '♂ 27', 'CN ⇄ JP', '广州市，中国', 'style-0'],
+    ['Mika', '♀ 22', 'JP ⇄ CN', '大阪府，日本', 'style-1']
+  ].slice(0, Math.min(task?.visitors || 0, 6));
+  return `<div class="overlay history-overlay"><section class="visitor-sheet${state.overlayEntered ? '' : ' is-entering'}" role="dialog" aria-modal="true" aria-labelledby="visitor-sheet-title"><i class="sheet-handle"></i><header class="history-sheet-head"><button data-action="visitors-close" aria-label="关闭">×</button><h2 id="visitor-sheet-title">看过封面的人</h2><span></span></header><main class="visitor-list"><p>已有 <strong>${task?.visitors || 0}</strong> 位用户看过你的开屏封面</p>${visitors.map(([name, meta, languages, city, style]) => `<article class="visitor-row"><i class="visitor-avatar ${style}"></i><span><strong>${name}<em>${meta}</em></strong><small>${languages}</small><small>${city}</small></span></article>`).join('')}</main></section></div>`;
 }
 
 function overlay() {
@@ -135,6 +165,8 @@ function overlay() {
   const enterClass = state.overlayEntered ? '' : ' is-entering';
   if (state.overlay === 'template') return renderTemplateSheet();
   if (state.overlay === 'records') return renderHistorySheet();
+  if (state.overlay === 'active-tasks') return renderActiveTasksSheet();
+  if (state.overlay === 'visitors') return renderVisitorsSheet();
   if (state.overlay === 'photo') return `<div class="overlay"><div class="sheet${enterClass}"><i class="sheet-handle"></i><h3>请选择照片</h3><button class="sheet-action" data-action="photo-select" data-source="avatar">使用头像</button><button class="sheet-action" data-action="photo-select" data-source="album">拍照/相册</button><button class="sheet-action sheet-cancel" data-action="overlay-close">取消</button></div></div>`;
   if (state.overlay === 'preview') return `<div class="overlay"><div class="dialog${enterClass}"><h3>商品模版预览</h3><div class="mini-cover" style="margin:14px 0 12px">第一眼很短，认识你可以很长。</div><p>实际开屏文案会按接收者的界面语言展示。</p><div class="dialog-actions"><button class="confirm" data-action="overlay-close">知道了</button></div></div></div>`;
   if (state.overlay === 'plus') return `<div class="overlay"><div class="dialog${enterClass}"><h3>指定语伴为 Plus 专享</h3><p>开通 Plus 后，可付费让 1 位互关语伴在打开 App 时第一眼看到你。</p><div class="dialog-actions"><button class="secondary" data-action="overlay-close">暂不</button><button class="confirm" data-action="overlay-close">开通 Plus</button></div></div></div>`;
@@ -146,8 +178,8 @@ function overlay() {
 function render() {
   let html = '';
   if (state.view === 'friends') html = renderFriends();
-  else if (state.view === 'details') html = renderDetails();
   else if (state.view === 'records') html = renderRecords();
+  else if (state.view === 'splash-preview') html = renderSplashPreview();
   else html = renderMain();
   app.className = `app ${state.review ? 'is-review' : ''}`;
   app.innerHTML = html + overlay();
@@ -173,8 +205,8 @@ function showOverlay(type) {
 
 function addTask(type) {
   const task = type === 'designated'
-    ? { id: Date.now(), type: 'designated', name: 'Mia', shown: 0, remaining: 42, photoSource: state.photoSource, style: state.template }
-    : { id: Date.now(), type: 'random', total: state.selectedPackage || 500, shown: 128, remaining: 42, photoSource: state.photoSource, style: state.template };
+    ? { id: Date.now(), type: 'designated', name: 'Mia', shown: 0, remaining: 42, photoSource: state.photoSource, style: state.template, copy: state.copy }
+    : { id: Date.now(), type: 'random', total: state.selectedPackage || 500, shown: 128, visitors: 9, remaining: 42, photoSource: state.photoSource, style: state.template, copy: state.copy };
   state.activeTasks.unshift(task);
 }
 
@@ -182,7 +214,7 @@ function finishLatest() {
   const task = state.activeTasks.shift();
   if (!task) return;
   if (task.type === 'random') {
-    state.records.unshift({ type: 'random', date: '刚刚', shown: task.shown, visitors: Math.max(1, Math.round(task.shown * .07)), status: task.shown >= task.total ? '投放完成' : '投放结束', photoSource: task.photoSource, style: task.style });
+    state.records.unshift({ type: 'random', date: '刚刚', shown: task.shown, visitors: task.visitors ?? Math.max(1, Math.round(task.shown * .07)), status: task.shown >= task.total ? '投放完成' : '投放结束', photoSource: task.photoSource, style: task.style });
   } else {
     state.records.unshift({ type: 'designated', date: '刚刚', name: task.name, initial: task.name[0], className: task.name === 'Mia' ? 'mia' : 'noah', detail: 'TA 已打开 App 并看到你的开屏封面', status: '已展示', photoSource: task.photoSource, style: task.style });
   }
@@ -190,9 +222,16 @@ function finishLatest() {
 
 app.addEventListener('click', (event) => {
   if (event.target instanceof Element && event.target.classList.contains('overlay')) {
-    state.overlay = null;
-    state.overlayEntered = true;
-    render();
+    if (state.overlay === 'visitors') {
+      state.visitorTask = null;
+      const origin = state.visitorOrigin;
+      state.visitorOrigin = null;
+      showOverlay(origin === 'history' ? 'records' : 'active-tasks');
+    } else {
+      state.overlay = null;
+      state.overlayEntered = true;
+      render();
+    }
     return;
   }
   const element = event.target.closest('[data-action], [data-rule-anchor]');
@@ -200,6 +239,50 @@ app.addEventListener('click', (event) => {
   if (element.dataset.ruleAnchor) { selectRuleByTarget(element.dataset.ruleAnchor); return; }
   const action = element.dataset.action;
   if (action === 'mode-help') { state.modeHelp = state.modeHelp === element.dataset.help ? null : element.dataset.help; render(); return; }
+  if (action === 'open-active-task') {
+    if (state.activeTasks.length) showOverlay('active-tasks');
+    return;
+  }
+  if (action === 'open-latest-preview') {
+    if (state.activeTasks.length) {
+      state.previewItem = state.activeTasks[0];
+      state.previewOrigin = 'main';
+      setView('splash-preview');
+    }
+    return;
+  }
+  if (action === 'open-preview') {
+    const index = Number(element.dataset.previewIndex);
+    state.previewItem = element.dataset.previewSource === 'record' ? state.records[index] : state.activeTasks[index];
+    state.previewOrigin = element.dataset.previewSource === 'record' ? 'history' : 'active-tasks';
+    setView('splash-preview');
+    return;
+  }
+  if (action === 'open-visitors') {
+    state.visitorOrigin = element.dataset.visitorSource === 'record' ? 'history' : 'active-tasks';
+    state.visitorTask = state.visitorOrigin === 'history'
+      ? state.records[Number(element.dataset.visitorIndex)]
+      : state.activeTasks[Number(element.dataset.visitorIndex)];
+    showOverlay('visitors');
+    return;
+  }
+  if (action === 'visitors-close') {
+    state.visitorTask = null;
+    const origin = state.visitorOrigin;
+    state.visitorOrigin = null;
+    showOverlay(origin === 'history' ? 'records' : 'active-tasks');
+    return;
+  }
+  if (action === 'preview-back') {
+    const origin = state.previewOrigin;
+    state.previewItem = null;
+    state.previewOrigin = null;
+    state.view = 'main';
+    if (origin === 'history') showOverlay('records');
+    else if (origin === 'active-tasks') showOverlay('active-tasks');
+    else render();
+    return;
+  }
   if (action === 'nav') setView(element.dataset.target);
   if (action === 'open-records') showOverlay('records');
   if (action === 'copy-record') { state.overlay = null; state.overlayEntered = true; render(); }

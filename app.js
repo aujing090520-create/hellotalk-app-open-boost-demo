@@ -2,14 +2,40 @@ const app = document.querySelector('#app');
 const phone = document.querySelector('#phone');
 const rulePanel = document.querySelector('#rulePanel');
 const connectorLayer = document.querySelector('#connectorLayer');
+const backendConsole = document.querySelector('#backendConsole');
+const demoVersion = new URLSearchParams(window.location.search).get('v') || '';
 
 const initialRecords = [
   { type: 'random', date: '08/18', shown: 500, visitors: 36, status: '投放完成', photoSource: 'avatar', style: 0 },
-  { type: 'designated', date: '08/12', name: 'Mia', initial: 'M', className: 'mia', status: '已展示', detail: 'TA 已打开 App 并看到你的开屏封面', photoSource: 'album', style: 1 },
+  { type: 'designated', date: '08/12', name: 'Mia', initial: 'M', className: 'mia', status: '已展示', detail: '对方已打开 App 并看到你的开屏封面', photoSource: 'album', style: 1 },
   { type: 'designated', date: '07/30', name: 'Noah', initial: 'N', className: 'noah', status: '未展示', detail: '48 小时内未打开 App', photoSource: 'avatar', style: 2 }
 ];
 
 const styleNames = ['清透日常', '暖调胶片', '霓虹夜景', '柔光蜜粉'];
+
+// Demo 中的“后台返回数据”。商品主数据和前台外显配置分开，和真实后台的职责保持一致。
+const productCatalog = {
+  random: [
+    { id: 'open-r-500', name: '500 次推荐', recommendCount: 500, exposureCount: 500, price: 590, listPrice: 690, displayPrice: 690, firstPrice: 590, actualPrice: 590, vipPrice: 590, enabled: true },
+    { id: 'open-r-1000', name: '1000 次推荐', recommendCount: 1000, exposureCount: 1000, price: 990, listPrice: 1190, displayPrice: 1190, firstPrice: 990, actualPrice: 990, vipPrice: 990, enabled: true },
+    { id: 'open-r-2000', name: '2000 次推荐', recommendCount: 2000, exposureCount: 2000, price: 1890, listPrice: 2390, displayPrice: 2390, firstPrice: 1890, actualPrice: 1890, vipPrice: 1890, enabled: true },
+    { id: 'open-r-3000', name: '3000 次推荐', recommendCount: 3000, exposureCount: 3000, price: 2690, listPrice: 3590, displayPrice: 3590, firstPrice: 2690, actualPrice: 2690, vipPrice: 2690, enabled: true }
+  ],
+  designated: [
+    { id: 'open-d-1', name: '指定 1 位语伴', recommendCount: 1, exposureCount: 1, price: 990, listPrice: 1190, displayPrice: 1190, firstPrice: 990, actualPrice: 990, vipPrice: 990, enabled: true }
+  ]
+};
+
+const placementConfig = {
+  random: { productIds: ['open-r-500', 'open-r-1000', 'open-r-2000', 'open-r-3000'], defaultId: 'open-r-500' },
+  designated: { productIds: ['open-d-1'], defaultId: 'open-d-1' }
+};
+
+const productGroups = {
+  random: [{ id: 'group-r-1', category: '开屏推荐', name: '随机推荐默认商品组', description: '随机推荐商品组', productIds: [...placementConfig.random.productIds] }],
+  designated: [{ id: 'group-d-1', category: '开屏推荐', name: '指定语伴默认商品组', description: '指定语伴商品组', productIds: [...placementConfig.designated.productIds] }]
+};
+const defaultGroupIds = { random: 'group-r-1', designated: 'group-d-1' };
 
 const rules = [
   { id: 'FR-001/1', text: '四个横向 Tab，开屏推荐复用加热中心页面结构。', target: 'tabs', view: 'main' },
@@ -35,7 +61,14 @@ const state = {
   template: 0,
   copy: 0,
   mode: 'random',
-  selectedPackage: 500,
+  selectedProductIds: { random: 'open-r-500', designated: 'open-d-1' },
+  backendType: 'random',
+  adminPage: demoVersion.includes('placement-group') ? 'placement' : 'products',
+  adminDialog: null,
+  adminDialogType: null,
+  adminPlacementDialog: null,
+  adminPlacementDraftIds: [],
+  adminPlacementDraft: { name: '', description: '', category: '开屏推荐' },
   selectedFriend: null,
   agreed: true,
   activeTasks: [],
@@ -60,6 +93,44 @@ function anchor(target, number) {
   return `<i class="rule-anchor" data-rule-anchor="${target}" aria-hidden="true">${number}</i>`;
 }
 
+function productById(type, id) {
+  return productCatalog[type].find(product => product.id === id);
+}
+
+function visibleProducts(type) {
+  return placementConfig[type].productIds
+    .map(id => productById(type, id))
+    .filter(product => product?.enabled);
+}
+
+function normalizePlacement(type) {
+  const max = type === 'random' ? 4 : 1;
+  const catalogIds = new Set(productCatalog[type].filter(product => product.enabled).map(product => product.id));
+  placementConfig[type].productIds = placementConfig[type].productIds.filter(id => catalogIds.has(id)).slice(0, max);
+  if (!placementConfig[type].productIds.includes(placementConfig[type].defaultId)) {
+    placementConfig[type].defaultId = placementConfig[type].productIds[0] || null;
+  }
+  const selectedId = state.selectedProductIds[type];
+  if (!placementConfig[type].productIds.includes(selectedId)) {
+    state.selectedProductIds[type] = placementConfig[type].defaultId;
+  }
+}
+
+function selectedProduct(type) {
+  normalizePlacement(type);
+  const selected = productById(type, state.selectedProductIds[type]);
+  return selected && selected.enabled && placementConfig[type].productIds.includes(selected.id)
+    ? selected
+    : visibleProducts(type)[0] || null;
+}
+
+function savingText(product) {
+  if (!product) return '';
+  if (product.recommendCount === 500) return '基础价';
+  const discount = Math.round((1 - product.price / product.listPrice) * 100);
+  return discount > 0 ? `省 ${discount}%` : '优惠价';
+}
+
 function taskCopy(task) {
   if (task.type === 'random') return { title: '正在推荐', detail: `已展示 ${task.shown} / ${task.total} 人` };
   return { title: '等待对方打开 App', detail: `${task.name} · 剩余 ${task.remaining} 小时` };
@@ -76,17 +147,22 @@ function renderMain() {
   })() : '';
   const hero = '<section class="open-cover-banner" aria-label="开屏推荐介绍"><div class="banner-portrait" aria-hidden="true"><b><i></i>HelloTalk</b><span class="banner-portrait-photo"></span><em><i>✦</i> 今日开屏人物</em></div><div class="open-cover-copy"><span>开屏推荐</span><strong>让新朋友<br>第一眼看见你</strong><p>打开 App，就有机会遇见你</p><i class="banner-benefit">专属开屏封面</i></div></section>';
   const ready = state.photoSelected && state.templateSelected;
-  const designatedDisabled = !state.isPlus;
+  const randomProducts = visibleProducts('random');
+  const randomProduct = selectedProduct('random');
+  const designatedProduct = selectedProduct('designated');
+  const designatedDisabled = !state.isPlus || !designatedProduct;
   const selectedFriend = state.selectedFriend;
-  const canSubmit = ready && (state.mode === 'random' || !!selectedFriend) && state.agreed;
-  const ctaAmount = state.mode === 'designated' ? 1000 : state.selectedPackage;
-  const showCtaPrice = ready && (state.mode === 'random' || !!selectedFriend);
+  const activeProduct = state.mode === 'designated' ? designatedProduct : randomProduct;
+  const canSubmit = ready && !!activeProduct && (state.mode === 'random' || !!selectedFriend) && state.agreed;
+  const showCtaPrice = ready && !!activeProduct && (state.mode === 'random' || !!selectedFriend);
   const buttonText = !state.photoSelected ? '选择照片' : !state.templateSelected ? '选择风格' : '选择投放对象';
-  const purchaseContent = showCtaPrice ? `<em class="vip-price-tag">VIP 专享价</em><span class="cta-price"><span class="cta-current"><i class="currency-mark">HT</i><b>${priceFor(ctaAmount)} 币</b></span><del>${listPriceFor(ctaAmount)} 币</del></span>` : buttonText;
+  const purchaseContent = showCtaPrice ? `<em class="vip-price-tag">VIP 专享价</em><span class="cta-price"><span class="cta-current"><i class="currency-mark">HT</i><b>${activeProduct.price} 币</b></span><del>${activeProduct.listPrice} 币</del></span>` : buttonText;
   const purchaseLabel = state.mode === 'random'
     ? `<span>选择推荐人数</span><button class="purchase-help" data-action="mode-help" data-help="package-duration" aria-label="查看推荐时长说明"></button>${state.modeHelp === 'package-duration' ? '<span class="purchase-tip" role="tooltip">每500次最多推荐48小时，可重复叠加，到达时间后即自动结束推荐。</span>' : ''}`
     : `<span>选择投放对象</span><button class="purchase-help" data-action="mode-help" data-help="duration" aria-label="查看推荐时长说明"></button>${state.modeHelp === 'duration' ? '<span class="purchase-tip" role="tooltip">最多曝光48小时，到达时候后即自动结束推荐</span>' : ''}`;
-  const packageHtml = state.mode === 'random' ? `<div class="package-grid" data-rule-target="packages">${anchor('packages', '5')}${[500,1000,2000,3000].map(amount => `<button class="package ${state.selectedPackage === amount ? 'is-selected' : ''}" data-action="package" data-amount="${amount}">${amount}<small>${amount === 500 ? '基础价' : amount === 1000 ? '省 16%' : amount === 2000 ? '省 20%' : '省 24%'}</small></button>`).join('')}</div>` : `<button class="designated-bar" data-action="open-friends">${selectedFriend ? `<span class="avatar ${selectedFriend.className}">${selectedFriend.initial}</span>` : '<span class="select-partner-icon" aria-hidden="true"><i>+</i></span>'}<span>${selectedFriend ? `指定给 ${selectedFriend.name}` : '请选择投放对象'}</span><strong style="margin-left:auto;color:var(--open-primary)">${priceFor(1000)} 币</strong><i class="chevron">›</i></button>`;
+  const packageHtml = state.mode === 'random'
+    ? `<div class="package-grid package-count-${Math.max(1, randomProducts.length)}" data-rule-target="packages">${anchor('packages', '5')}${randomProducts.length ? randomProducts.map(product => `<button class="package ${state.selectedProductIds.random === product.id ? 'is-selected' : ''}" data-action="package" data-product-id="${product.id}">${product.recommendCount}<small>${savingText(product)}</small></button>`).join('') : '<p class="package-empty">暂无可投放的随机推荐商品</p>'}</div>`
+    : `<button class="designated-bar" ${designatedProduct ? 'data-action="open-friends"' : 'disabled'}>${selectedFriend ? `<span class="avatar ${selectedFriend.className}">${selectedFriend.initial}</span>` : '<span class="select-partner-icon" aria-hidden="true"><i>+</i></span>'}<span>${designatedProduct ? (selectedFriend ? `指定给 ${selectedFriend.name}` : '请选择投放对象') : '暂无可投放商品'}</span>${designatedProduct ? `<strong style="margin-left:auto;color:var(--open-primary)">${designatedProduct.price} 币</strong><i class="chevron">›</i>` : ''}</button>`;
 
   return `${statusBar()}<section class="screen main-screen">
     <header class="boost-head"><button class="boost-close" data-action="close" aria-label="关闭">×</button><h2>加热中心</h2></header>
@@ -175,6 +251,85 @@ function overlay() {
   return '';
 }
 
+function typeLabel(type) { return type === 'random' ? '随机推荐' : '指定语伴'; }
+
+function productRows(type) {
+  return productCatalog[type].map(product => `<tr>
+    <td>${product.id}</td><td><strong>${product.name}</strong></td><td>${typeLabel(type)}</td><td>${type === 'random' ? `${product.recommendCount} 次` : '1 位'}</td>
+    <td>${product.price} 币</td><td>${product.listPrice} 币</td>
+    <td><label class="admin-switch"><input type="checkbox" data-backend-action="enabled" data-product-id="${product.id}" ${product.enabled ? 'checked' : ''}/><i></i><span>${product.enabled ? '启用' : '停用'}</span></label></td>
+    <td><button class="table-link" data-backend-action="edit-product" data-product-id="${product.id}">编辑</button></td>
+  </tr>`).join('');
+}
+
+function renderProductPage(type) {
+  return `<div class="admin-page-head"><div><h2>商品配置</h2><p>配置开屏推荐商品与价格，保存后将同步给客户端。</p></div><button class="admin-primary" data-backend-action="new-product">＋ 新建商品</button></div>
+    <section class="admin-filter"><label>商品类型<select data-backend-action="type"><option value="random" ${type === 'random' ? 'selected' : ''}>随机推荐</option><option value="designated" ${type === 'designated' ? 'selected' : ''}>指定语伴</option></select></label><label>商品状态<select><option>全部状态</option><option>启用</option><option>停用</option></select></label><button class="admin-search">查询</button><button class="admin-reset">重置</button></section>
+    <section class="admin-card"><div class="admin-card-head"><strong>商品列表</strong><span>共 ${productCatalog[type].length} 个商品</span></div><div class="admin-table-wrap"><table class="admin-table"><thead><tr><th>商品 ID</th><th>商品名称</th><th>投放类型</th><th>推荐人数</th><th>到手价</th><th>划线价</th><th>状态</th><th>操作</th></tr></thead><tbody>${productRows(type)}</tbody></table></div></section>`;
+}
+
+function renderPlacementPage(type) {
+  const max = type === 'random' ? 4 : 1;
+  const groups = productGroups[type];
+  const defaultId = defaultGroupIds[type];
+  const current = placementConfig[type];
+  return `<div class="admin-page-head"><div><h2>商品分组</h2><p>一个商品组可包含多个商品，客户端按默认商品组外显。</p></div><div class="admin-page-actions"><span class="admin-count">${typeLabel(type)} · 已外显 ${visibleProducts(type).length} / ${max}</span><button class="admin-primary" data-backend-action="new-placement">＋ 新增</button></div></div>
+    <section class="admin-filter placement-filter"><label>ID<input placeholder="请输入 ID" /></label><label>商品名称<input placeholder="请输入商品名称" /></label><label>分组<select><option>请选择</option>${groups.map(group => `<option>${group.name}</option>`).join('')}</select></label><label>商品分类<select><option>请选择</option><option>开屏推荐</option><option>付费曝光</option></select></label><button class="admin-reset">重置</button><button class="admin-search">查询</button></section>
+    <section class="admin-card"><div class="admin-card-head"><strong>商品组列表</strong><span>共 ${groups.length} 条数据</span></div><div class="admin-table-wrap"><table class="admin-table placement-table group-table"><thead><tr><th>商品组 ID</th><th>商品分类</th><th>商品组名称</th><th>商品组描述</th><th>所含商品</th><th>操作</th></tr></thead><tbody>${groups.map(group => {
+      const names = group.productIds.map(id => productById(type, id)?.name).filter(Boolean).join('\n');
+      const isDefault = group.id === defaultId;
+      return `<tr><td>${group.id}</td><td>${group.category}</td><td><strong>${group.name}</strong></td><td>${group.description}</td><td><span class="group-product-list">${names || '—'}</span></td><td><button class="table-link" data-backend-action="edit-placement" data-group-id="${group.id}">编辑</button><button class="table-link" data-backend-action="copy-placement" data-group-id="${group.id}">复制</button><button class="table-link" data-backend-action="set-default-group" data-group-id="${group.id}" ${isDefault ? 'disabled' : ''}>${isDefault ? '已设为默认商品组' : '设为默认商品组'}</button></td></tr>`;
+    }).join('')}</tbody></table></div></section>`;
+}
+
+function renderPlacementDialog() {
+  if (!state.adminPlacementDialog) return '';
+  const type = state.backendType;
+  const max = type === 'random' ? 4 : 1;
+  const draftIds = state.adminPlacementDraftIds || [];
+  const selected = new Set(draftIds);
+  const dialog = state.adminPlacementDialog;
+  const editingGroup = dialog.mode === 'edit' ? productGroups[type].find(group => group.id === dialog.groupId) : null;
+  const draft = state.adminPlacementDraft || {};
+  const groupName = draft.name ?? editingGroup?.name ?? '';
+  const groupDescription = draft.description ?? editingGroup?.description ?? '';
+  const groupCategory = draft.category || editingGroup?.category || '开屏推荐';
+  const canSave = Boolean(groupName.trim() && groupDescription.trim() && selected.size);
+  return `<div class="admin-dialog-backdrop"><section class="admin-dialog admin-placement-dialog" role="dialog" aria-modal="true" aria-labelledby="placement-dialog-title"><header><h3 id="placement-dialog-title">${dialog.mode === 'edit' ? '编辑商品组' : '添加商品组'}</h3><button data-backend-action="close-placement-dialog" aria-label="关闭">×</button></header><section class="placement-group-fields"><label><b>*</b>商品组名称<input id="adminGroupName" required value="${groupName}" placeholder="请输入商品组名称" /></label><label><b>*</b>商品组描述<input id="adminGroupDescription" required value="${groupDescription}" placeholder="请输入商品组描述" /></label><label>商品分类<select id="adminGroupCategory"><option ${groupCategory === '开屏推荐' ? 'selected' : ''}>开屏推荐</option><option ${groupCategory === '付费曝光' ? 'selected' : ''}>付费曝光</option></select></label></section><section class="placement-dialog-filter"><label>ID<input placeholder="请输入 ID" /></label><label>商品名称<input placeholder="请输入商品名称" /></label><label>状态<select><option>请选择</option><option>启用</option><option>关闭</option></select></label><label>曝光次数<input placeholder="请输入曝光次数" /></label><button class="admin-reset">重置</button><button class="admin-search">查询</button></section><main class="placement-dialog-body"><div class="placement-dialog-meta"><strong>选择商品</strong><span>已选择 ${selected.size} / ${max}</span></div><div class="admin-table-wrap"><table class="admin-table placement-pick-table"><thead><tr><th>选择</th><th>Product ID</th><th>商品名称</th><th>状态</th><th>投放类型</th><th>曝光次数</th></tr></thead><tbody>${productCatalog[type].map(product => `<tr><td><input type="checkbox" data-backend-action="placement-pick" data-product-id="${product.id}" ${selected.has(product.id) ? 'checked' : ''} ${!product.enabled || (!selected.has(product.id) && selected.size >= max) ? 'disabled' : ''} /></td><td>${product.id}</td><td>${product.name}</td><td><span class="record-status ${product.enabled ? '' : 'is-running'}">${product.enabled ? '启用' : '关闭'}</span></td><td>${typeLabel(type)}</td><td>${product.exposureCount || product.recommendCount} 次</td></tr>`).join('')}</tbody></table></div></main><footer><button class="admin-cancel" data-backend-action="close-placement-dialog">取消</button><button class="admin-primary" data-backend-action="save-placement-group" data-group-id="${dialog.groupId || ''}" ${canSave ? '' : 'disabled'}>确认</button></footer></section></div>`;
+}
+
+function consoleRecordRows() {
+  const active = state.activeTasks.map((task, index) => ({ ...task, id: task.id || `active-${index}`, status: '投放中', created: '刚刚' }));
+  const history = state.records.map((record, index) => ({ ...record, id: `record-${index}`, productName: record.type === 'random' ? `${record.shown} 次推荐` : '指定 1 位语伴', created: record.date }));
+  return [...active, ...history].map(record => `<tr><td>${record.id}</td><td>C*${record.type === 'random' ? 'm' : 'z'}</td><td>${typeLabel(record.type)}</td><td>${record.productName || '开屏推荐商品'}</td><td>${record.photoSource === 'album' ? '照片' : '头像'} · ${styleNames[record.style] || styleNames[0]}</td><td><span class="record-status ${record.status === '投放中' ? 'is-running' : ''}">${record.status}</span></td><td>${record.type === 'random' ? `${record.shown || 0} / ${record.total || record.shown || 0}` : record.name || '—'}</td><td>${record.type === 'random' ? `${record.visitors ?? '—'} 人` : '—'}</td><td>${record.created}</td></tr>`).join('');
+}
+
+function renderRecordsPage() {
+  return `<div class="admin-page-head"><div><h2>投放记录</h2><p>查看随机推荐与指定语伴的投放结果。</p></div></div><section class="admin-filter"><label>投放类型<select><option>全部类型</option><option>随机推荐</option><option>指定语伴</option></select></label><label>投放状态<select><option>全部状态</option><option>投放中</option><option>投放完成</option></select></label><label>创建时间<input value="2026-08-01 至 2026-08-31" readonly /></label><button class="admin-search">查询</button><button class="admin-reset">重置</button></section><section class="admin-card"><div class="admin-card-head"><strong>投放记录</strong><span>进行中与已结束记录</span></div><div class="admin-table-wrap"><table class="admin-table records-table"><thead><tr><th>记录 ID</th><th>用户</th><th>投放类型</th><th>商品快照</th><th>开屏封面</th><th>状态</th><th>投放进度 / 对象</th><th>访客数</th><th>创建时间</th></tr></thead><tbody>${consoleRecordRows()}</tbody></table></div></section>`;
+}
+
+function renderProductDialog() {
+  if (!state.adminDialog) return '';
+  const { mode, productId } = state.adminDialog;
+  const type = state.backendType;
+  const dialogType = state.adminDialogType || type;
+  const product = mode === 'edit' ? productById(dialogType, productId) : { name: '', recommendCount: dialogType === 'random' ? 500 : 1, exposureCount: dialogType === 'random' ? 500 : 1, price: dialogType === 'random' ? 590 : 990, listPrice: dialogType === 'random' ? 690 : 1190, displayPrice: dialogType === 'random' ? 690 : 1190, firstPrice: dialogType === 'random' ? 590 : 990, actualPrice: dialogType === 'random' ? 590 : 990, vipPrice: dialogType === 'random' ? 590 : 990, enabled: true };
+  const value = (key, fallback = '') => product[key] ?? fallback;
+  const field = (label, id, fieldValue, unit, note = '', required = false) => `<div class="admin-config-field"><label>${required ? '<b>*</b>' : ''}${label}</label><div><div class="admin-unit-input"><input id="${id}" type="number" min="1" value="${fieldValue}" /><span>${unit}</span></div>${note ? `<p>${note}</p>` : ''}</div></div>`;
+  const exposureNote = dialogType === 'random' ? '范围为 500 至 10000，且必须是 500 的倍数。' : '指定语伴商品固定曝光 1 次。';
+  const settings = `<div class="admin-config-form"><div class="admin-config-field admin-config-name"><label><b>*</b>商品名称</label><div><input id="adminProductName" required value="${value('name')}" placeholder="请输入商品名称" /></div></div><div class="admin-config-field"><label>投放类型</label><div><select id="adminProductType" data-backend-action="dialog-type" ${mode === 'edit' ? 'disabled' : ''}><option value="random" ${dialogType === 'random' ? 'selected' : ''}>随机推荐</option><option value="designated" ${dialogType === 'designated' ? 'selected' : ''}>指定语伴</option></select><p>${mode === 'edit' ? '编辑时不可修改商品所属投放类型。' : '请选择该商品用于随机推荐还是指定语伴。'}</p></div></div><div class="admin-config-status"><span>状态</span><label class="admin-status-switch"><input id="adminProductEnabled" type="checkbox" ${product.enabled ? 'checked' : ''} /><i>启用</i></label></div>${field('显示原价', 'adminProductDisplayPrice', value('displayPrice', value('listPrice', 1190)), 'coins', '客户端原价会展示划线价，和实际价格对比。')}${field('首次购买价格', 'adminProductFirstPrice', value('firstPrice', value('price', 990)), 'coins', '从未购买过的用户首次体验价，不区分 VIP 还是非 VIP。')}<div class="admin-config-field"><label>首次购买角标</label><div><select id="adminProductFirstBadge"><option>不展示</option><option>限时优惠</option><option>新人专享</option></select><p>占位符类型为商业化，不填写则显示客户端默认值。</p></div></div>${field('实际价格', 'adminProductActualPrice', value('actualPrice', value('price', 990)), 'coins', '享受过体验价后的固定实际价格。', true)}${field('VIP价格', 'adminProductVipPrice', value('vipPrice', value('price', 990)), 'coins', '配置后仅针对 VIP 用户生效。')}<div class="admin-config-field"><label>VIP价格角标</label><div><select id="adminProductVipBadge"><option>不展示</option><option>VIP专享</option><option>限时优惠</option></select><p>占位符类型为商业化，不填写则显示客户端默认值。</p></div></div><div class="admin-config-field"><label>VIP价格限时角标</label><div><select id="adminProductVipLimitBadge"><option>不展示</option><option>限时优惠</option><option>即将结束</option></select><p>占位符类型为商业化，不填写则显示客户端默认值。</p></div></div>${field('曝光次数', 'adminProductExposureCount', value('exposureCount', value('recommendCount', 500)), '次', exposureNote, true)}</div>`;
+  const canSave = Boolean(value('name').trim());
+  return `<div class="admin-dialog-backdrop"><section class="admin-dialog admin-config-dialog" role="dialog" aria-modal="true" aria-labelledby="admin-dialog-title"><header><h3 id="admin-dialog-title">${mode === 'edit' ? 'Edit' : 'Add'}</h3><button data-backend-action="close-dialog" aria-label="关闭">×</button></header><main>${settings}</main><footer><button class="admin-cancel" data-backend-action="close-dialog">取消</button><button class="admin-primary" data-backend-action="save-product" data-product-id="${productId || ''}" ${canSave ? '' : 'disabled'}>确认</button></footer></section></div>`;
+}
+
+function renderBackendConsole() {
+  if (!backendConsole) return;
+  const type = state.backendType;
+  const page = state.adminPage;
+  const content = page === 'products' ? renderProductPage(type) : page === 'placement' ? renderPlacementPage(type) : renderRecordsPage();
+  backendConsole.innerHTML = `<section class="admin-frame"><section class="admin-workspace admin-workspace-compact"><header class="admin-localbar"><strong>开屏推荐</strong><nav class="admin-tabs" aria-label="开屏推荐后台页签"><button class="${page === 'products' ? 'is-active' : ''}" data-backend-action="page" data-backend-page="products">商品配置</button><button class="${page === 'placement' ? 'is-active' : ''}" data-backend-action="page" data-backend-page="placement">商品分组</button><button class="${page === 'records' ? 'is-active' : ''}" data-backend-action="page" data-backend-page="records">投放记录</button></nav></header><main class="admin-content">${content}</main></section></section>${renderProductDialog()}${renderPlacementDialog()}`;
+}
+
 function render() {
   let html = '';
   if (state.view === 'friends') html = renderFriends();
@@ -183,15 +338,8 @@ function render() {
   else html = renderMain();
   app.className = `app ${state.review ? 'is-review' : ''}`;
   app.innerHTML = html + overlay();
+  renderBackendConsole();
   requestAnimationFrame(drawConnectors);
-}
-
-function priceFor(amount) {
-  return ({ 500: 590, 1000: 990, 2000: 1890, 3000: 2690 })[amount];
-}
-
-function listPriceFor(amount) {
-  return ({ 500: 690, 1000: 1190, 2000: 2390, 3000: 3590 })[amount];
 }
 
 function setView(view) { state.view = view; state.overlay = null; state.overlayEntered = true; render(); }
@@ -204,9 +352,11 @@ function showOverlay(type) {
 }
 
 function addTask(type) {
+  const product = selectedProduct(type);
+  if (!product) return;
   const task = type === 'designated'
-    ? { id: Date.now(), type: 'designated', name: 'Mia', shown: 0, remaining: 42, photoSource: state.photoSource, style: state.template, copy: state.copy }
-    : { id: Date.now(), type: 'random', total: state.selectedPackage || 500, shown: 128, visitors: 9, remaining: 42, photoSource: state.photoSource, style: state.template, copy: state.copy };
+    ? { id: Date.now(), type: 'designated', productId: product.id, productName: product.name, price: product.price, name: 'Mia', shown: 0, remaining: 42, photoSource: state.photoSource, style: state.template, copy: state.copy }
+    : { id: Date.now(), type: 'random', productId: product.id, productName: product.name, price: product.price, total: product.recommendCount, shown: Math.min(128, product.recommendCount), visitors: 9, remaining: 42, photoSource: state.photoSource, style: state.template, copy: state.copy };
   state.activeTasks.unshift(task);
 }
 
@@ -216,7 +366,7 @@ function finishLatest() {
   if (task.type === 'random') {
     state.records.unshift({ type: 'random', date: '刚刚', shown: task.shown, visitors: task.visitors ?? Math.max(1, Math.round(task.shown * .07)), status: task.shown >= task.total ? '投放完成' : '投放结束', photoSource: task.photoSource, style: task.style });
   } else {
-    state.records.unshift({ type: 'designated', date: '刚刚', name: task.name, initial: task.name[0], className: task.name === 'Mia' ? 'mia' : 'noah', detail: 'TA 已打开 App 并看到你的开屏封面', status: '已展示', photoSource: task.photoSource, style: task.style });
+    state.records.unshift({ type: 'designated', date: '刚刚', name: task.name, initial: task.name[0], className: task.name === 'Mia' ? 'mia' : 'noah', detail: '对方已打开 App 并看到你的开屏封面', status: '已展示', photoSource: task.photoSource, style: task.style });
   }
 }
 
@@ -291,10 +441,11 @@ app.addEventListener('click', (event) => {
   if (action === 'close') { state.view = 'main'; render(); }
   if (action === 'mode') {
     if (element.dataset.mode === 'designated' && !state.isPlus) { showOverlay('plus'); return; }
+    if (element.dataset.mode === 'designated' && !selectedProduct('designated')) return;
     else { state.mode = element.dataset.mode; state.modeHelp = null; if (state.mode === 'random') state.selectedFriend = null; }
     render();
   }
-  if (action === 'package') { state.selectedPackage = Number(element.dataset.amount); render(); }
+  if (action === 'package') { state.selectedProductIds.random = element.dataset.productId; render(); }
   if (action === 'agreement') { state.agreed = !state.agreed; render(); }
   if (action === 'photo-sheet') showOverlay('photo');
   if (action === 'open-template') showOverlay('template');
@@ -319,6 +470,148 @@ app.addEventListener('click', (event) => {
     addTask(state.mode); showOverlay('created');
   }
   if (action === 'overlay-close') { state.overlay = null; state.overlayEntered = true; render(); }
+});
+
+backendConsole?.addEventListener('click', (event) => {
+  const control = event.target.closest('[data-backend-action]');
+  if (!control) return;
+  const action = control.dataset.backendAction;
+  const type = state.backendType;
+  if (action === 'page') { state.adminPage = control.dataset.backendPage; renderBackendConsole(); return; }
+  if (action === 'edit-product') { state.adminDialog = { mode: 'edit', productId: control.dataset.productId }; state.adminDialogType = state.backendType; renderBackendConsole(); return; }
+  if (action === 'new-product') { state.adminDialog = { mode: 'create' }; state.adminDialogType = state.backendType; renderBackendConsole(); return; }
+  if (action === 'close-dialog') { state.adminDialog = null; state.adminDialogType = null; renderBackendConsole(); return; }
+  if (action === 'new-placement') { state.adminPlacementDialog = { mode: 'create' }; state.adminPlacementDraftIds = []; state.adminPlacementDraft = { name: '', description: '', category: '开屏推荐' }; renderBackendConsole(); return; }
+  if (action === 'edit-placement') { const group = productGroups[type].find(item => item.id === control.dataset.groupId); state.adminPlacementDialog = { mode: 'edit', groupId: control.dataset.groupId }; state.adminPlacementDraftIds = [...(group?.productIds || [])]; state.adminPlacementDraft = { name: group?.name || '', description: group?.description || '', category: group?.category || '开屏推荐' }; renderBackendConsole(); return; }
+  if (action === 'copy-placement') { const group = productGroups[type].find(item => item.id === control.dataset.groupId); if (group) { const copy = { ...group, id: `group-${type === 'random' ? 'r' : 'd'}-${Date.now().toString().slice(-4)}`, name: `${group.name}（副本）`, productIds: [...group.productIds] }; productGroups[type].push(copy); } renderBackendConsole(); return; }
+  if (action === 'set-default-group') { const group = productGroups[type].find(item => item.id === control.dataset.groupId); if (group) { defaultGroupIds[type] = group.id; placementConfig[type].productIds = [...group.productIds]; placementConfig[type].defaultId = group.productIds[0] || null; normalizePlacement(type); } render(); return; }
+  if (action === 'close-placement-dialog') { state.adminPlacementDialog = null; state.adminPlacementDraftIds = []; state.adminPlacementDraft = { name: '', description: '', category: '开屏推荐' }; renderBackendConsole(); return; }
+  if (action === 'save-placement-group') {
+    const name = backendConsole.querySelector('#adminGroupName')?.value.trim();
+    const description = backendConsole.querySelector('#adminGroupDescription')?.value.trim() || '';
+    const category = backendConsole.querySelector('#adminGroupCategory')?.value || '开屏推荐';
+    const productIds = [...(state.adminPlacementDraftIds || [])];
+    if (!name || !description || !productIds.length) return;
+    const dialog = state.adminPlacementDialog;
+    let group = dialog.groupId ? productGroups[type].find(item => item.id === dialog.groupId) : null;
+    if (group) Object.assign(group, { name, description, category, productIds });
+    else { group = { id: `group-${type === 'random' ? 'r' : 'd'}-${Date.now().toString().slice(-4)}`, category, name, description, productIds }; productGroups[type].push(group); }
+    defaultGroupIds[type] = group.id;
+    placementConfig[type].productIds = [...productIds];
+    placementConfig[type].defaultId = productIds[0] || null;
+    normalizePlacement(type);
+    state.adminPlacementDialog = null;
+    state.adminPlacementDraftIds = [];
+    state.adminPlacementDraft = { name: '', description: '', category: '开屏推荐' };
+    render();
+    return;
+  }
+  if (action === 'move-up' || action === 'move-down') {
+    const ids = placementConfig[type].productIds;
+    const index = ids.indexOf(control.dataset.productId);
+    const next = action === 'move-up' ? index - 1 : index + 1;
+    if (index >= 0 && next >= 0 && next < ids.length) [ids[index], ids[next]] = [ids[next], ids[index]];
+    render();
+    return;
+  }
+  if (action === 'save-product') {
+    const name = backendConsole.querySelector('#adminProductName')?.value.trim();
+    const displayPrice = Math.max(1, Number(backendConsole.querySelector('#adminProductDisplayPrice')?.value) || 1);
+    const firstPrice = Math.max(1, Number(backendConsole.querySelector('#adminProductFirstPrice')?.value) || 1);
+    const actualPrice = Math.max(1, Number(backendConsole.querySelector('#adminProductActualPrice')?.value) || 1);
+    const vipPrice = Math.max(1, Number(backendConsole.querySelector('#adminProductVipPrice')?.value) || actualPrice);
+    const exposureCount = Math.max(1, Number(backendConsole.querySelector('#adminProductExposureCount')?.value) || 1);
+    const enabled = backendConsole.querySelector('#adminProductEnabled')?.checked ?? true;
+    if (!name) return;
+    const dialogType = state.adminDialogType || type;
+    let product = control.dataset.productId ? productById(dialogType, control.dataset.productId) : null;
+    if (!product) {
+      const suffix = dialogType === 'random' ? exposureCount : Date.now().toString().slice(-4);
+      product = { id: `open-${dialogType === 'random' ? 'r' : 'd'}-${suffix}-${Date.now().toString().slice(-3)}`, name, recommendCount: dialogType === 'random' ? exposureCount : 1, exposureCount, price: actualPrice, listPrice: displayPrice, displayPrice, firstPrice, actualPrice, vipPrice, enabled };
+      productCatalog[dialogType].push(product);
+    } else {
+      Object.assign(product, { name, recommendCount: dialogType === 'random' ? exposureCount : 1, exposureCount, price: actualPrice, listPrice: displayPrice, displayPrice, firstPrice, actualPrice, vipPrice, enabled });
+    }
+    normalizePlacement(dialogType);
+    state.adminDialog = null;
+    state.adminDialogType = null;
+    render();
+  }
+});
+
+backendConsole?.addEventListener('change', (event) => {
+  const control = event.target.closest('[data-backend-action]');
+  if (!control) return;
+  const type = state.backendType;
+  const product = productById(type, control.dataset.productId);
+  const action = control.dataset.backendAction;
+  if (action === 'type') {
+    state.backendType = control.value;
+    state.adminDialog = null;
+    renderBackendConsole();
+    return;
+  }
+  if (action === 'dialog-type' && state.adminDialog?.mode === 'create') {
+    state.adminDialogType = control.value;
+    renderBackendConsole();
+    return;
+  }
+  if (action === 'placement-pick') {
+    state.adminPlacementDraft = { name: backendConsole.querySelector('#adminGroupName')?.value || '', description: backendConsole.querySelector('#adminGroupDescription')?.value || '', category: backendConsole.querySelector('#adminGroupCategory')?.value || '开屏推荐' };
+    const ids = [...(state.adminPlacementDraftIds || [])];
+    const max = type === 'random' ? 4 : 1;
+    if (control.checked) {
+      if (!ids.includes(control.dataset.productId) && ids.length < max) ids.push(control.dataset.productId);
+    } else {
+      state.adminPlacementDraftIds = ids.filter(id => id !== control.dataset.productId);
+    }
+    if (control.checked) state.adminPlacementDraftIds = ids;
+    renderBackendConsole();
+    return;
+  }
+  if (action === 'enabled' && product) {
+    product.enabled = control.checked;
+    normalizePlacement(type);
+  }
+  if (action === 'price' && product) {
+    const field = control.dataset.backendField;
+    product[field] = Math.max(1, Number(control.value) || product[field]);
+  }
+  if (action === 'placement' && product) {
+    const ids = placementConfig[type].productIds;
+    if (control.checked) {
+      const max = type === 'random' ? 4 : 1;
+      if (ids.length < max && product.enabled) ids.push(product.id);
+    } else {
+      placementConfig[type].productIds = ids.filter(id => id !== product.id);
+    }
+    normalizePlacement(type);
+  }
+  if (action === 'default' && product && placementConfig[type].productIds.includes(product.id)) {
+    placementConfig[type].defaultId = product.id;
+    state.selectedProductIds[type] = product.id;
+  }
+  render();
+});
+
+backendConsole?.addEventListener('input', (event) => {
+  if (!state.adminDialog && !state.adminPlacementDialog) return;
+  const target = event.target;
+  if (state.adminPlacementDialog && (target.id === 'adminGroupName' || target.id === 'adminGroupDescription')) {
+    const name = backendConsole.querySelector('#adminGroupName')?.value.trim() || '';
+    const description = backendConsole.querySelector('#adminGroupDescription')?.value.trim() || '';
+    state.adminPlacementDraft = {
+      name,
+      description,
+      category: backendConsole.querySelector('#adminGroupCategory')?.value || '开屏推荐'
+    };
+    const button = backendConsole.querySelector('[data-backend-action="save-placement-group"]');
+    if (button) button.disabled = !(name && description && (state.adminPlacementDraftIds || []).length);
+  }
+  if (state.adminDialog && target.id === 'adminProductName') {
+    const button = backendConsole.querySelector('[data-backend-action="save-product"]');
+    if (button) button.disabled = !target.value.trim();
+  }
 });
 
 document.querySelector('#reviewToggle').addEventListener('change', (event) => {

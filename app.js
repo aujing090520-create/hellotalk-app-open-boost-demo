@@ -4,6 +4,25 @@ const rulePanel = document.querySelector('#rulePanel');
 const connectorLayer = document.querySelector('#connectorLayer');
 const backendConsole = document.querySelector('#backendConsole');
 const demoVersion = new URLSearchParams(window.location.search).get('v') || '';
+const completionStorageKey = 'hellotalk-open-boost-completion-notice';
+
+function readCompletionNotice() {
+  try {
+    const value = window.localStorage.getItem(completionStorageKey);
+    return value ? JSON.parse(value) : null;
+  } catch {
+    return null;
+  }
+}
+
+function persistCompletionNotice(notice) {
+  try {
+    if (notice) window.localStorage.setItem(completionStorageKey, JSON.stringify(notice));
+    else window.localStorage.removeItem(completionStorageKey);
+  } catch {
+    // Demo 在禁用本地存储的环境中仍可正常展示当前会话状态。
+  }
+}
 
 const initialRecords = [
   { type: 'random', date: '08/18', shown: 500, visitors: 36, status: '投放完成', photoSource: 'avatar', style: 0 },
@@ -73,14 +92,18 @@ const state = {
   agreed: true,
   activeTasks: [],
   records: [...initialRecords],
+  completionNotice: readCompletionNotice(),
   modeHelp: null,
   previewItem: null,
   previewOrigin: null,
+  previewSaved: false,
   audienceTask: null,
   audienceOrigin: null,
   audienceTab: 'shown',
   selectedRule: null
 };
+
+if (state.completionNotice) state.overlay = 'completion';
 
 function statusBar() {
   return `<div class="statusbar"><span>15:07</span><div class="status-icons"><span class="signal"></span><span>◒</span><span class="battery"></span></div></div>`;
@@ -199,7 +222,8 @@ function renderSplashPreview() {
   const task = state.previewItem || state.activeTasks[0] || { photoSource: state.photoSource, style: state.template, copy: state.copy };
   const copies = ['很高兴认识你，愿这次相遇让今天更明亮。', '愿你今天的心情，也和这次相遇一样明亮。', '第一眼很短，认识你可以很长。'];
   const imageClass = task.photoSource === 'avatar' ? 'is-avatar' : `is-album style-${task.style}`;
-  return `${statusBar()}<section class="screen splash-preview-page"><header class="page-head"><button class="head-icon" data-action="preview-back" aria-label="返回">‹</button><h2>预览开屏效果</h2><span class="head-icon"></span></header><main class="splash-preview-content"><p>这是其他用户打开 HelloTalk 时看到的效果</p><section class="recipient-splash" aria-label="开屏效果预览"><div class="recipient-status"><span>15:07</span><span>◒ ◒ ▭</span></div><div class="recipient-brand"><i></i>HelloTalk</div><i class="recipient-cover ${imageClass}"></i><div class="recipient-copy"><strong>Hi，很高兴认识你</strong><span>${copies[task.copy || 0]}</span></div><button class="recipient-action">打个招呼</button></section><p class="splash-preview-note">开屏文案将按对方的界面语言展示</p></main></section>`;
+  const canSave = state.previewOrigin === 'main' || state.previewOrigin === 'active-tasks';
+  return `${statusBar()}<section class="screen splash-preview-page"><header class="page-head"><button class="head-icon" data-action="preview-back" aria-label="返回">‹</button><h2>预览开屏效果</h2><span class="head-icon"></span></header><main class="splash-preview-content"><p>这是其他用户打开 HelloTalk 时看到的效果</p><section class="recipient-splash" aria-label="开屏效果预览"><div class="recipient-status"><span>15:07</span><span>◒ ◒ ▭</span></div><div class="recipient-brand"><i></i>HelloTalk</div><i class="recipient-cover ${imageClass}"></i><div class="recipient-copy"><strong>Hi，很高兴认识你</strong><span>${copies[task.copy || 0]}</span></div><button class="recipient-action">打个招呼</button></section>${canSave ? `<button class="preview-save-button" data-action="save-preview-image">⇩ 保存图片</button>${state.previewSaved ? '<p class="preview-save-result" role="status">图片已保存</p>' : ''}` : ''}<p class="splash-preview-note">开屏文案将按对方的界面语言展示</p></main></section>`;
 }
 
 function renderRecords() {
@@ -258,12 +282,90 @@ function overlay() {
   if (state.overlay === 'records') return renderHistorySheet();
   if (state.overlay === 'active-tasks') return renderActiveTasksSheet();
   if (state.overlay === 'audience') return renderAudienceSheet();
+  if (state.overlay === 'completion') return renderCompletionNotice();
   if (state.overlay === 'photo') return `<div class="overlay"><div class="sheet${enterClass}"><i class="sheet-handle"></i><h3>请选择照片</h3><button class="sheet-action" data-action="photo-select" data-source="avatar">使用头像</button><button class="sheet-action" data-action="photo-select" data-source="album">拍照/相册</button><button class="sheet-action sheet-cancel" data-action="overlay-close">取消</button></div></div>`;
   if (state.overlay === 'preview') return `<div class="overlay"><div class="dialog${enterClass}"><h3>商品模版预览</h3><div class="mini-cover" style="margin:14px 0 12px">第一眼很短，认识你可以很长。</div><p>实际开屏文案会按接收者的界面语言展示。</p><div class="dialog-actions"><button class="confirm" data-action="overlay-close">知道了</button></div></div></div>`;
   if (state.overlay === 'plus') return `<div class="overlay"><div class="dialog${enterClass}"><h3>指定语伴为 Plus 专享</h3><p>开通 Plus 后，可付费让 1 位互关语伴在打开 App 时第一眼看到你。</p><div class="dialog-actions"><button class="secondary" data-action="overlay-close">暂不</button><button class="confirm" data-action="overlay-close">开通 Plus</button></div></div></div>`;
   if (state.overlay === 'inactive') return `<div class="overlay"><div class="dialog${enterClass}"><h3>${state.pendingFriend?.name || '这位语伴'} 已超过 3 天未登录</h3><p>${state.pendingFriend?.name || '对方'} 下次打开 App 时将看到你的开屏封面。48 小时内未打开，推荐自动结束。</p><div class="dialog-actions"><button class="secondary" data-action="overlay-close">换一位语伴</button><button class="confirm" data-action="confirm-inactive">仍然选择</button></div></div></div>`;
   if (state.overlay === 'created') return `<div class="overlay"><div class="dialog${enterClass}"><h3>已开始生成开屏封面</h3><p>完成后将自动开始推荐，你可在开屏推荐顶部查看状态。</p><div class="dialog-actions"><button class="confirm" data-action="overlay-close">知道了</button></div></div></div>`;
   return '';
+}
+
+function renderCompletionNotice() {
+  const notice = state.completionNotice;
+  if (!notice) return '';
+  const isRandom = notice.type === 'random';
+  const description = isRandom ? '随机推荐已结束，本次数据如下' : `${notice.name} 的指定开屏推荐已结束`;
+  const metrics = isRandom
+    ? `<div><span>已展示人数</span><strong>${notice.shown}<small>人</small></strong></div><div><span>访客数</span><strong>${notice.visitors}<small>人</small></strong></div>`
+    : `<div><span>展示对象</span><strong>${notice.name}</strong></div><div><span>投放状态</span><strong>${notice.status}</strong></div>`;
+  return `<div class="overlay completion-overlay"><section class="completion-dialog" role="dialog" aria-modal="true" aria-labelledby="completion-title"><i class="completion-mark">✓</i><h3 id="completion-title">上次推荐已结束</h3><p>${description}</p><div class="completion-summary"><div class="completion-summary-head"><span>${isRandom ? '随机推荐' : '指定语伴'}</span><em>${notice.status}</em></div><div class="completion-metrics">${metrics}</div></div><div class="completion-actions"><button class="secondary" data-action="completion-close">知道了</button><button class="confirm" data-action="completion-records">查看投放记录</button></div></section></div>`;
+}
+
+function downloadPreviewImage(task) {
+  const canvas = document.createElement('canvas');
+  canvas.width = 750;
+  canvas.height = 1240;
+  const context = canvas.getContext('2d');
+  if (!context) return;
+  const copies = ['很高兴认识你，愿这次相遇让今天更明亮。', '愿你今天的心情，也和这次相遇一样明亮。', '第一眼很短，认识你可以很长。'];
+  const radius = (x, y, width, height, value) => {
+    context.beginPath();
+    context.roundRect(x, y, width, height, value);
+    context.closePath();
+  };
+  const paint = (image) => {
+    const gradient = context.createLinearGradient(0, 0, 750, 1240);
+    gradient.addColorStop(0, '#2d3264');
+    gradient.addColorStop(.55, '#56476f');
+    gradient.addColorStop(1, '#202950');
+    context.fillStyle = gradient;
+    context.fillRect(0, 0, 750, 1240);
+    const glow = context.createRadialGradient(620, 170, 5, 620, 170, 360);
+    glow.addColorStop(0, 'rgba(255,196,128,.46)');
+    glow.addColorStop(1, 'rgba(255,196,128,0)');
+    context.fillStyle = glow;
+    context.fillRect(0, 0, 750, 1240);
+    context.fillStyle = '#fff';
+    context.font = '700 34px -apple-system, BlinkMacSystemFont, PingFang SC, sans-serif';
+    context.fillText('HelloTalk', 68, 105);
+    radius(54, 160, 642, 594, 34);
+    context.save();
+    context.clip();
+    if (task.photoSource === 'album' && image) {
+      const halfWidth = image.width / 2;
+      const halfHeight = image.height / 2;
+      const sourceX = task.style % 2 ? halfWidth : 0;
+      const sourceY = task.style > 1 ? halfHeight : 0;
+      context.drawImage(image, sourceX, sourceY, halfWidth, halfHeight, 54, 160, 642, 594);
+    } else if (image) {
+      context.drawImage(image, 0, 0, image.width, image.height, 54, 160, 642, 594);
+    }
+    context.restore();
+    context.fillStyle = '#fff';
+    context.font = '700 46px -apple-system, BlinkMacSystemFont, PingFang SC, sans-serif';
+    context.fillText('Hi，很高兴认识你', 54, 846);
+    context.fillStyle = 'rgba(255,255,255,.86)';
+    context.font = '32px -apple-system, BlinkMacSystemFont, PingFang SC, sans-serif';
+    const text = copies[task.copy || 0];
+    context.fillText(text.slice(0, 18), 54, 904);
+    if (text.length > 18) context.fillText(text.slice(18), 54, 946);
+    radius(54, 1040, 642, 96, 26);
+    context.fillStyle = '#fff';
+    context.fill();
+    context.fillStyle = '#30345d';
+    context.font = '700 32px -apple-system, BlinkMacSystemFont, PingFang SC, sans-serif';
+    context.textAlign = 'center';
+    context.fillText('打个招呼', 375, 1100);
+    const anchor = document.createElement('a');
+    anchor.download = 'HelloTalk-开屏推荐.png';
+    anchor.href = canvas.toDataURL('image/png');
+    anchor.click();
+  };
+  const image = new Image();
+  image.onload = () => paint(image);
+  image.onerror = () => paint(null);
+  image.src = task.photoSource === 'album' ? 'assets/style-cases.png' : 'assets/user-avatar.png';
 }
 
 function typeLabel(type) { return type === 'random' ? '随机推荐' : '指定语伴'; }
@@ -378,15 +480,23 @@ function addTask(type) {
 function finishLatest() {
   const task = state.activeTasks.shift();
   if (!task) return;
+  let record;
   if (task.type === 'random') {
-    state.records.unshift({ type: 'random', date: '刚刚', shown: task.shown, visitors: task.visitors ?? Math.max(1, Math.round(task.shown * .07)), status: task.shown >= task.total ? '投放完成' : '投放结束', photoSource: task.photoSource, style: task.style });
+    record = { type: 'random', date: '刚刚', shown: task.shown, visitors: task.visitors ?? Math.max(1, Math.round(task.shown * .07)), status: task.shown >= task.total ? '投放完成' : '投放结束', photoSource: task.photoSource, style: task.style };
   } else {
-    state.records.unshift({ type: 'designated', date: '刚刚', name: task.name, initial: task.name[0], className: task.name === 'Mia' ? 'mia' : 'noah', detail: '对方已打开 App 并看到你的开屏封面', status: '已展示', photoSource: task.photoSource, style: task.style });
+    record = { type: 'designated', date: '刚刚', name: task.name, initial: task.name[0], className: task.name === 'Mia' ? 'mia' : 'noah', detail: '对方已打开 App 并看到你的开屏封面', status: '已展示', photoSource: task.photoSource, style: task.style };
   }
+  state.records.unshift(record);
+  state.completionNotice = { type: record.type, status: record.status, shown: record.shown || 0, visitors: record.visitors || 0, name: record.name || '' };
+  persistCompletionNotice(state.completionNotice);
 }
 
 app.addEventListener('click', (event) => {
   if (event.target instanceof Element && event.target.classList.contains('overlay')) {
+    if (state.overlay === 'completion') {
+      state.completionNotice = null;
+      persistCompletionNotice(null);
+    }
     if (state.overlay === 'audience') {
       state.audienceTask = null;
       const origin = state.audienceOrigin;
@@ -412,6 +522,7 @@ app.addEventListener('click', (event) => {
     if (state.activeTasks.length) {
       state.previewItem = state.activeTasks[0];
       state.previewOrigin = 'main';
+      state.previewSaved = false;
       setView('splash-preview');
     }
     return;
@@ -420,6 +531,7 @@ app.addEventListener('click', (event) => {
     const index = Number(element.dataset.previewIndex);
     state.previewItem = element.dataset.previewSource === 'record' ? state.records[index] : state.activeTasks[index];
     state.previewOrigin = element.dataset.previewSource === 'record' ? 'history' : 'active-tasks';
+    state.previewSaved = false;
     setView('splash-preview');
     return;
   }
@@ -448,10 +560,36 @@ app.addEventListener('click', (event) => {
     const origin = state.previewOrigin;
     state.previewItem = null;
     state.previewOrigin = null;
+    state.previewSaved = false;
     state.view = 'main';
     if (origin === 'history') showOverlay('records');
     else if (origin === 'active-tasks') showOverlay('active-tasks');
     else render();
+    return;
+  }
+  if (action === 'save-preview-image') {
+    downloadPreviewImage(state.previewItem || state.activeTasks[0] || { photoSource: state.photoSource, style: state.template, copy: state.copy });
+    state.previewSaved = true;
+    render();
+    window.setTimeout(() => {
+      if (!state.previewSaved) return;
+      state.previewSaved = false;
+      if (state.view === 'splash-preview') render();
+    }, 1800);
+    return;
+  }
+  if (action === 'completion-close') {
+    state.completionNotice = null;
+    persistCompletionNotice(null);
+    state.overlay = null;
+    state.overlayEntered = true;
+    render();
+    return;
+  }
+  if (action === 'completion-records') {
+    state.completionNotice = null;
+    persistCompletionNotice(null);
+    showOverlay('records');
     return;
   }
   if (action === 'nav') setView(element.dataset.target);

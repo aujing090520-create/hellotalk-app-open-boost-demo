@@ -493,9 +493,14 @@ button { font: inherit; border: 0; cursor: pointer; }
 .recipient-copy strong { font-size: 24px; line-height: 29px; letter-spacing: -.8px; }
 .recipient-copy span { margin-top: 6px; color: rgba(255,255,255,.86); font-size: 13px; line-height: 19px; }
 .recipient-action { width: 100%; height: 44px; margin-top: 18px; border-radius: 12px; color: #2f3155; background: #fff; font-size: 15px; font-weight: 700; }
-.preview-save-button { display: flex; align-items: center; justify-content: center; gap: 5px; width: 100%; height: 42px; margin-top: 12px; border: 1px solid #f1b295; border-radius: 12px; color: var(--open-deep); background: #fffaf7; font-size: 14px; font-weight: 700; }
-.preview-save-button:active { transform: scale(.985); background: #fff3ec; }
-.preview-save-result { margin: 8px 0 -2px !important; color: #28a56b !important; font-weight: 600; }
+.preview-save-card { display: flex; align-items: center; width: 100%; min-height: 58px; margin-top: 14px; padding: 9px 12px; border-radius: 15px; background: #fff; box-shadow: 0 8px 22px rgba(50,42,72,.08); text-align: left; }
+.preview-save-card:active { transform: scale(.988); background: #fffaf7; }
+.preview-save-icon { display: grid; flex: 0 0 auto; place-items: center; width: 34px; height: 34px; margin-right: 10px; border-radius: 11px; color: #fff; background: linear-gradient(145deg, #ffb25d, #ff7e59); font-size: 20px; font-style: normal; font-weight: 800; line-height: 1; }
+.preview-save-card span { display: grid; gap: 2px; min-width: 0; }
+.preview-save-card strong { color: var(--text); font-size: 14px; line-height: 18px; }
+.preview-save-card small { color: #98989e; font-size: 11px; line-height: 15px; }
+.preview-save-card em { margin-left: auto; padding: 5px 8px; border-radius: 8px; color: var(--open-deep); background: #fff1e8; font-size: 12px; font-style: normal; font-weight: 700; }
+.preview-save-result { margin: 7px 0 -3px !important; color: #28a56b !important; font-size: 11px !important; font-weight: 600; text-align: center; }
 .splash-preview-content .splash-preview-note { margin: 15px 0 0; color: #98989e; font-size: 11px; }
 
 .overlay { position: absolute; z-index: 20; inset: 0; display: flex; align-items: flex-end; background: var(--scrim); }

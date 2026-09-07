@@ -296,14 +296,15 @@ function renderCompletionNotice() {
   if (!notice) return '';
   const isRandom = notice.type === 'random';
   const isShown = notice.status === '已展示';
-  const total = notice.total || notice.shown || 0;
+  const total = notice.total || selectedProduct('random')?.recommendCount || notice.shown || 0;
   const isComplete = notice.status === '投放完成' || notice.shown >= total;
+  const duration = notice.duration || '06:00:00';
   const result = isRandom
-    ? `<span class="completion-result-kicker">${isComplete ? '太好了，更多新朋友看见你了' : '本次推荐已结束'}</span><strong><b>${isComplete ? total : notice.shown}</b><small>位新朋友</small></strong>`
+    ? `<span class="completion-result-kicker">${isComplete ? '太好了，更多新朋友看见你了' : '本次推荐已结束'}</span><strong>${isComplete ? '你的开屏封面已顺利展示' : '已有新朋友看见你的开屏封面'}</strong>`
     : `<span class="completion-result-kicker">${isShown ? '太好了，你们的相遇从第一眼开始' : '这次没有等到对方打开 App'}</span><strong>${notice.name || '这位语伴'} ${isShown ? '第一眼就看见你了' : '还没看到你'}</strong>`;
   const metrics = isRandom
-    ? `<div class="completion-metric"><span>展示进度</span><strong>${notice.shown}<small> / ${total} 人</small></strong></div><div class="completion-metric"><span>访客数</span><strong>${notice.visitors}<small>人</small></strong></div>`
-    : `<div class="completion-metric"><span>展示对象</span><strong>${notice.name || '—'}</strong></div><div class="completion-metric"><span>投放状态</span><strong class="${isShown ? 'is-success' : 'is-muted'}">${notice.status || '—'}</strong></div>`;
+    ? `<div class="completion-metric"><span>展示人数</span><strong>${notice.shown}<small>${isComplete ? ' 人' : ` / ${total} 人`}</small></strong></div><div class="completion-metric"><span>投放时长</span><strong>${duration}</strong></div><div class="completion-metric"><span>访客数</span><strong>${notice.visitors}<small>人</small></strong></div>`
+    : `<div class="completion-metric"><span>展示对象</span><strong>${notice.name || '—'}</strong></div><div class="completion-metric"><span>投放状态</span><strong class="${isShown ? 'is-success' : 'is-muted'}">${notice.status || '—'}</strong></div><div class="completion-metric"><span>投放时长</span><strong>${duration}</strong></div>`;
   const repeatData = isRandom
     ? 'data-action="completion-repeat" data-mode="random"'
     : `data-action="completion-repeat" data-mode="designated" data-name="${notice.name || ''}"`;
@@ -507,6 +508,7 @@ function addTask(type) {
 function finishLatest() {
   const task = state.activeTasks.shift();
   if (!task) return;
+  const duration = `${String(Math.max(0, 48 - (task.remaining ?? 48))).padStart(2, '0')}:00:00`;
   let record;
   if (task.type === 'random') {
     const shown = task.total || task.shown;
@@ -515,7 +517,7 @@ function finishLatest() {
     record = { type: 'designated', date: '刚刚', name: task.name, initial: task.name[0], className: task.name === 'Mia' ? 'mia' : 'noah', detail: '对方已打开 App 并看到你的开屏封面', status: '已展示', photoSource: task.photoSource, style: task.style };
   }
   state.records.unshift(record);
-  state.completionNotice = { type: record.type, status: record.status, shown: record.shown || 0, total: task.total || 0, visitors: record.visitors || 0, name: record.name || '' };
+  state.completionNotice = { type: record.type, status: record.status, shown: record.shown || 0, total: task.total || 0, visitors: record.visitors || 0, name: record.name || '', duration };
   persistCompletionNotice(state.completionNotice);
 }
 

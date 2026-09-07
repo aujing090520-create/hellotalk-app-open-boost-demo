@@ -668,12 +668,12 @@ button { font: inherit; border: 0; cursor: pointer; }
 .completion-result-copy strong small { margin-left: 4px; color: #5e5c63; font-size: 14px; font-weight: 600; letter-spacing: 0; }
 .completion-result-kicker { display: block; margin-bottom: 3px; color: #777078; font-size: 12px; line-height: 17px; }
 .completion-splash-ip { position: absolute; z-index: 0; top: 12px; right: 12px; width: 82px; height: 82px; object-fit: contain; }
-.completion-result-metrics { display: grid; grid-template-columns: 1fr 1fr; margin: 12px -16px 0; border-top: 1px solid #f1eff1; background: #fff; }
-.completion-metric { min-height: 57px; padding: 10px 16px 11px; }
+.completion-result-metrics { display: grid; grid-template-columns: repeat(3, 1fr); margin: 12px -16px 0; border-top: 1px solid #f1eff1; background: #fff; }
+.completion-metric { min-height: 57px; padding: 10px 11px 11px; }
 .completion-metric + .completion-metric { border-left: 1px solid #f0eef0; }
 .completion-metric span, .completion-metric strong { display: block; }
 .completion-metric span { color: #99999f; font-size: 10px; line-height: 14px; }
-.completion-metric strong { margin-top: 3px; color: #343238; font-size: 16px; line-height: 19px; }
+.completion-metric strong { margin-top: 3px; color: #343238; font-size: 15px; line-height: 19px; white-space: nowrap; }
 .completion-metric.is-success { color: #1d9c68; }
 .completion-metric.is-muted { color: #8a8a90; }
 .completion-metric strong small { margin-left: 2px; color: #73737a; font-size: 10px; font-weight: 500; }

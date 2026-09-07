@@ -296,16 +296,18 @@ function renderCompletionNotice() {
   if (!notice) return '';
   const isRandom = notice.type === 'random';
   const isShown = notice.status === '已展示';
+  const total = notice.total || notice.shown || 0;
+  const isComplete = notice.status === '投放完成' || notice.shown >= total;
   const result = isRandom
-    ? `<span class="completion-result-kicker">本次推荐完成</span><strong>已展示 <b>${notice.shown}</b><small>人</small></strong>`
-    : `<span class="completion-result-kicker">本次推荐已结束</span><strong>${notice.name || '指定语伴'} ${isShown ? '已展示' : '未展示'}</strong>`;
+    ? `<span class="completion-result-kicker">${isComplete ? '太好了，更多新朋友看见你了' : '本次推荐已结束'}</span><strong><b>${isComplete ? total : notice.shown}</b><small>位新朋友</small></strong>`
+    : `<span class="completion-result-kicker">${isShown ? '太好了，你们的相遇从第一眼开始' : '这次没有等到对方打开 App'}</span><strong>${notice.name || '这位语伴'} ${isShown ? '第一眼就看见你了' : '还没看到你'}</strong>`;
   const metrics = isRandom
-    ? `<div class="completion-metric"><span>访客数</span><strong>${notice.visitors}<small>人</small></strong></div>`
+    ? `<div class="completion-metric"><span>展示进度</span><strong>${notice.shown}<small> / ${total} 人</small></strong></div><div class="completion-metric"><span>访客数</span><strong>${notice.visitors}<small>人</small></strong></div>`
     : `<div class="completion-metric"><span>展示对象</span><strong>${notice.name || '—'}</strong></div><div class="completion-metric"><span>投放状态</span><strong class="${isShown ? 'is-success' : 'is-muted'}">${notice.status || '—'}</strong></div>`;
   const repeatData = isRandom
     ? 'data-action="completion-repeat" data-mode="random"'
     : `data-action="completion-repeat" data-mode="designated" data-name="${notice.name || ''}"`;
-  return `<div class="overlay completion-overlay"><section class="completion-sheet${state.overlayEntered ? '' : ' is-entering'}" role="dialog" aria-modal="true" aria-labelledby="completion-title"><i class="sheet-handle"></i><header class="completion-sheet-head"><button data-action="completion-close" aria-label="关闭">×</button><h2 id="completion-title">开屏推荐已结束</h2><span aria-hidden="true"></span></header><main class="completion-sheet-body"><article class="completion-result-card"><div class="completion-result-copy"><em>${isRandom ? '随机推荐' : '指定语伴'}</em>${result}</div><i class="completion-splash-ip" aria-hidden="true"><b></b><span></span></i><div class="completion-result-metrics ${isRandom ? 'is-random' : ''}">${metrics}</div></article></main><footer class="completion-sheet-footer"><button class="completion-repeat" ${repeatData}>再次推荐</button></footer></section></div>`;
+  return `<div class="overlay completion-overlay"><section class="completion-sheet${state.overlayEntered ? '' : ' is-entering'}" role="dialog" aria-modal="true" aria-labelledby="completion-title"><i class="sheet-handle"></i><header class="completion-sheet-head"><button data-action="completion-close" aria-label="关闭">×</button><h2 id="completion-title">开屏推荐已结束</h2><span aria-hidden="true"></span></header><main class="completion-sheet-body"><article class="completion-result-card"><div class="completion-result-copy"><em>${isRandom ? '随机推荐' : '指定语伴'}</em>${result}</div><img class="completion-splash-ip" src="assets/completion-ip.png" alt="" aria-hidden="true"><div class="completion-result-metrics">${metrics}</div></article></main><footer class="completion-sheet-footer"><button class="completion-repeat" ${repeatData}>再次推荐</button></footer></section></div>`;
 }
 
 function downloadPreviewImage(task) {
@@ -507,12 +509,13 @@ function finishLatest() {
   if (!task) return;
   let record;
   if (task.type === 'random') {
-    record = { type: 'random', date: '刚刚', shown: task.shown, visitors: task.visitors ?? Math.max(1, Math.round(task.shown * .07)), status: task.shown >= task.total ? '投放完成' : '投放结束', photoSource: task.photoSource, style: task.style };
+    const shown = task.total || task.shown;
+    record = { type: 'random', date: '刚刚', shown, visitors: Math.max(task.visitors ?? 0, Math.round(shown * .07)), status: '投放完成', photoSource: task.photoSource, style: task.style };
   } else {
     record = { type: 'designated', date: '刚刚', name: task.name, initial: task.name[0], className: task.name === 'Mia' ? 'mia' : 'noah', detail: '对方已打开 App 并看到你的开屏封面', status: '已展示', photoSource: task.photoSource, style: task.style };
   }
   state.records.unshift(record);
-  state.completionNotice = { type: record.type, status: record.status, shown: record.shown || 0, visitors: record.visitors || 0, name: record.name || '' };
+  state.completionNotice = { type: record.type, status: record.status, shown: record.shown || 0, total: task.total || 0, visitors: record.visitors || 0, name: record.name || '' };
   persistCompletionNotice(state.completionNotice);
 }
 

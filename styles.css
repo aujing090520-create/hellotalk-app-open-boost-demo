@@ -665,6 +665,7 @@ button { font: inherit; border: 0; cursor: pointer; }
 .completion-type em { display: inline-flex; align-items: center; height: 20px; padding: 0 7px; border-radius: 6px; color: var(--open-deep); background: var(--open-soft); font-size: 10px; font-style: normal; font-weight: 700; }
 .completion-result-copy strong, .completion-result-copy strong small, .completion-result-copy strong b { display: inline-block; }
 .completion-result-copy strong { display: block; color: var(--text); font-size: 17px; line-height: 24px; letter-spacing: -.25px; }
+.completion-result-copy strong b { color: var(--open-deep); font-size: inherit; line-height: inherit; font-weight: 800; }
 .completion-result-copy strong b { color: var(--open-deep); font-size: 31px; line-height: 32px; letter-spacing: -.8px; }
 .completion-result-copy strong small { margin-left: 4px; color: #5e5c63; font-size: 14px; font-weight: 600; letter-spacing: 0; }
 .completion-result-kicker { display: block; margin-bottom: 2px; color: #777078; font-size: 12px; line-height: 17px; }
@@ -675,6 +676,8 @@ button { font: inherit; border: 0; cursor: pointer; }
 .completion-metric span, .completion-metric strong { display: block; }
 .completion-metric span { color: #99999f; font-size: 10px; line-height: 14px; }
 .completion-metric strong { margin-top: 3px; color: #343238; font-size: 15px; line-height: 19px; white-space: nowrap; }
+.completion-result-metrics .completion-metric:first-child strong,
+.completion-result-metrics .completion-metric:last-child strong { color: var(--open-deep); }
 .completion-metric.is-success { color: #1d9c68; }
 .completion-metric.is-muted { color: #8a8a90; }
 .completion-metric strong small { margin-left: 2px; color: #73737a; font-size: 10px; font-weight: 500; }

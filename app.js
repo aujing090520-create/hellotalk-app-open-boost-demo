@@ -300,8 +300,8 @@ function renderCompletionNotice() {
   const isComplete = notice.status === '投放完成' || notice.shown >= total;
   const duration = notice.duration || '06:00:00';
   const result = isRandom
-    ? `<span class="completion-result-kicker">${isComplete ? '太好了，更多新朋友看见你了' : '本次推荐已结束'}</span><strong>${isComplete ? '你的开屏封面已顺利展示' : '已有新朋友看见你的开屏封面'}</strong>`
-    : `<span class="completion-result-kicker">${isShown ? '太好了，你们的相遇从第一眼开始' : '这次没有等到对方打开 App'}</span><strong>${notice.name || '这位语伴'} ${isShown ? '第一眼就看见你了' : '还没看到你'}</strong>`;
+    ? `<span class="completion-result-kicker">${isComplete ? '本次推荐已完成' : '本次推荐已结束'}</span><strong>${isComplete ? '这次亮相，让更多新朋友第一眼看到你' : '这次亮相先到这里，下次继续让更多新朋友看见你'}</strong>`
+    : `<span class="completion-result-kicker">指定语伴</span><strong>${isShown ? `${notice.name || '这位语伴'} 已在打开 App 的第一眼看到你` : `差一点点，${notice.name || '这位语伴'} 这次还没来得及看到你`}</strong>`;
   const metrics = isRandom
     ? `<div class="completion-metric"><span>展示人数</span><strong>${notice.shown}<small>${isComplete ? ' 人' : ` / ${total} 人`}</small></strong></div><div class="completion-metric"><span>投放时长</span><strong>${duration}</strong></div><div class="completion-metric"><span>访客数</span><strong>${notice.visitors}<small>人</small></strong></div>`
     : `<div class="completion-metric"><span>展示对象</span><strong>${notice.name || '—'}</strong></div><div class="completion-metric"><span>投放状态</span><strong class="${isShown ? 'is-success' : 'is-muted'}">${notice.status || '—'}</strong></div><div class="completion-metric"><span>投放时长</span><strong>${duration}</strong></div>`;
@@ -519,6 +519,33 @@ function finishLatest() {
   state.records.unshift(record);
   state.completionNotice = { type: record.type, status: record.status, shown: record.shown || 0, total: task.total || 0, visitors: record.visitors || 0, name: record.name || '', duration };
   persistCompletionNotice(state.completionNotice);
+}
+
+function simulateCompletion(type, status) {
+  const isRandom = type === 'random';
+  const isComplete = status === 'complete';
+  const isShown = status === 'shown';
+  state.activeTasks = [];
+  state.completionNotice = isRandom
+    ? {
+      type: 'random',
+      status: isComplete ? '投放完成' : '未完整展示',
+      shown: isComplete ? 500 : 128,
+      total: 500,
+      visitors: isComplete ? 35 : 9,
+      duration: isComplete ? '06:00:00' : '48:00:00'
+    }
+    : {
+      type: 'designated',
+      status: isShown ? '已展示' : '未展示',
+      shown: 0,
+      total: 0,
+      visitors: 0,
+      name: 'Mia',
+      duration: isShown ? '06:00:00' : '48:00:00'
+    };
+  persistCompletionNotice(state.completionNotice);
+  showOverlay('completion');
 }
 
 app.addEventListener('click', (event) => {
@@ -827,6 +854,10 @@ document.querySelectorAll('[data-control]').forEach(button => button.addEventLis
   }
   if (control === 'create-random') addTask('random');
   if (control === 'create-designated') addTask('designated');
+  if (control === 'completion-random-complete') return simulateCompletion('random', 'complete');
+  if (control === 'completion-random-partial') return simulateCompletion('random', 'partial');
+  if (control === 'completion-designated-shown') return simulateCompletion('designated', 'shown');
+  if (control === 'completion-designated-unshown') return simulateCompletion('designated', 'unshown');
   if (control === 'finish-latest') {
     finishLatest();
     if (state.completionNotice) {

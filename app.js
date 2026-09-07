@@ -301,7 +301,7 @@ function renderCompletionNotice() {
   const duration = notice.duration || '06:00:00';
   const result = isRandom
     ? `<span class="completion-result-kicker">${isComplete ? '本次推荐已完成' : '本次推荐已结束'}</span><strong>${isComplete ? '这次亮相，让更多新朋友第一眼看到你' : '这次亮相先到这里，下次继续让更多新朋友看见你'}</strong>`
-    : `<span class="completion-result-kicker">指定语伴</span><strong>${isShown ? `${notice.name || '这位语伴'} 已在打开 App 的第一眼看到你` : `差一点点，${notice.name || '这位语伴'} 这次还没来得及看到你`}</strong>`;
+    : `<span class="completion-result-kicker">${isShown ? '本次推荐已完成' : '本次推荐已结束'}</span><strong>${isShown ? `${notice.name || '这位语伴'} 已在打开 App 的第一眼看到你` : `差一点点，${notice.name || '这位语伴'} 这次还没来得及看到你`}</strong>`;
   const metrics = isRandom
     ? `<div class="completion-metric"><span>展示人数</span><strong>${notice.shown}<small>${isComplete ? ' 人' : ` / ${total} 人`}</small></strong></div><div class="completion-metric"><span>投放时长</span><strong>${duration}</strong></div><div class="completion-metric"><span>访客数</span><strong>${notice.visitors}<small>人</small></strong></div>`
     : `<div class="completion-metric"><span>展示对象</span><strong>${notice.name || '—'}</strong></div><div class="completion-metric"><span>投放状态</span><strong class="${isShown ? 'is-success' : 'is-muted'}">${notice.status || '—'}</strong></div><div class="completion-metric"><span>投放时长</span><strong>${duration}</strong></div>`;

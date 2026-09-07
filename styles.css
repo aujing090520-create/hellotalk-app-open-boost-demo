@@ -104,8 +104,8 @@ button { font: inherit; border: 0; cursor: pointer; }
 
 /* 开屏推荐后台：复用现有曝光运营后台的深色导航、页签和高密度表格结构。 */
 .workbench { justify-content: flex-start; gap: 18px; padding: 18px; }
-.control-panel { width: calc(100vw - 430px); min-width: 800px; height: 812px; max-height: calc(100vh - 36px); margin: 0; overflow: hidden; border: 0; border-radius: 0; background: #f5f6f8; box-shadow: 0 10px 28px rgba(23,36,55,.14); }
-.backend-console { height: 100%; min-height: 0; }
+.control-panel { display: flex; flex-direction: column; width: calc(100vw - 430px); min-width: 800px; height: 812px; max-height: calc(100vh - 36px); margin: 0; overflow: hidden; border: 0; border-radius: 0; background: #f5f6f8; box-shadow: 0 10px 28px rgba(23,36,55,.14); }
+.backend-console { flex: 1 1 auto; height: auto; min-height: 0; overflow: auto; }
 .admin-frame { display: flex; width: 100%; height: 100%; min-width: 0; background: #f5f6f8; }
 .admin-sidebar { flex: 0 0 174px; overflow-y: auto; color: #c6d0dc; background: #061827; scrollbar-width: none; }
 .admin-sidebar::-webkit-scrollbar { display: none; }
@@ -184,7 +184,16 @@ button { font: inherit; border: 0; cursor: pointer; }
 .admin-dialog input, .admin-dialog select { border-color: #d7dce2; border-radius: 4px; }
 .admin-form-row { grid-column: 1 / -1; padding-left: 0; }
 .admin-dialog footer { padding: 13px 22px; background: #f7f8fa; }
-.demo-tools { display: none; }
+.demo-tools { display: block; flex: 0 0 auto; margin: 0; padding: 12px 14px 13px; border: 0; border-top: 1px solid #e3e6ea; border-radius: 0; background: #fff; }
+.demo-tools-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.demo-tools-head strong { color: #303133; font-size: 13px; }
+.demo-tools-head span { max-width: 310px; color: #909399; text-align: right; line-height: 16px; font-size: 11px; }
+.demo-tools > p { margin: 5px 0 9px; }
+.demo-tools-actions { flex-wrap: wrap; margin-top: 9px; }
+.control-action { color: #376da8; border-color: #cbdcf1; background: #f6faff; }
+.control-action:hover { border-color: #7aa7d8; background: #edf6ff; }
+.control-action:disabled { color: #b8c0c9; border-color: #e5e8eb; background: #f7f8fa; cursor: not-allowed; }
+.control-action.is-quiet { color: #7d858e; border-color: #e0e3e7; background: #fff; }
 .review-control { display: none; }
 .admin-workspace-compact { width: 100%; }
 .admin-localbar { height: 52px; flex: 0 0 52px; display: flex; align-items: stretch; gap: 24px; padding: 0 16px; border-bottom: 1px solid #dfe3e8; background: #fff; }

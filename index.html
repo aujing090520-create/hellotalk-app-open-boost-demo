@@ -18,13 +18,20 @@
       </section>
       <aside class="control-panel admin-console" id="controlPanel">
         <div class="backend-console" id="backendConsole" aria-label="开屏推荐运营后台"></div>
-        <section class="demo-tools">
-          <p>客户端演示辅助</p>
+        <section class="demo-tools" aria-label="Demo 状态控制台">
+          <div class="demo-tools-head"><strong>Demo 状态控制台</strong><span id="demoStateText" aria-live="polite">身份：Plus · 进行中：无 · 回访通知：未显示</span></div>
+          <p>当前会话状态；仅用于切换客户端演示，不影响运营后台配置。</p>
           <div class="control-segment" role="group" aria-label="体验身份">
             <button class="control-choice is-active" data-control="plus">Plus 用户</button>
             <button class="control-choice" data-control="normal">普通用户</button>
           </div>
-          <div class="demo-tools-actions"><button class="control-action" data-control="create-random">模拟随机投放中</button><button class="control-action" data-control="create-designated">模拟指定投放中</button><button class="control-action" data-control="finish-latest">结束最新任务</button></div>
+          <div class="demo-tools-actions">
+            <button class="control-action" data-control="create-random">模拟随机投放中</button>
+            <button class="control-action" data-control="create-designated">模拟指定投放中</button>
+            <button class="control-action" data-control="finish-latest">结束最新任务</button>
+            <button class="control-action" data-control="show-completion">查看回访通知</button>
+            <button class="control-action is-quiet" data-control="clear-completion">清除回访通知</button>
+          </div>
         </section>
         <div class="review-control">
           <label class="switch-row">

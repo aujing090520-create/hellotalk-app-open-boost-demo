@@ -456,7 +456,26 @@ function render() {
   app.className = `app ${state.review ? 'is-review' : ''}`;
   app.innerHTML = html + overlay();
   renderBackendConsole();
+  renderDemoTools();
   requestAnimationFrame(drawConnectors);
+}
+
+function renderDemoTools() {
+  const status = document.querySelector('#demoStateText');
+  const finish = document.querySelector('[data-control="finish-latest"]');
+  const completion = document.querySelector('[data-control="show-completion"]');
+  if (!status || !finish || !completion) return;
+  const latest = state.activeTasks[0];
+  const identity = state.isPlus ? 'Plus' : '普通用户';
+  const active = latest
+    ? latest.type === 'random'
+      ? `随机 · ${latest.shown} / ${latest.total} 人`
+      : `指定 · ${latest.name} · ${latest.remaining} 小时`
+    : '无';
+  const notice = state.completionNotice ? '待查看' : '未显示';
+  status.textContent = `身份：${identity} · 进行中：${active} · 回访通知：${notice}`;
+  finish.disabled = !latest;
+  completion.disabled = !state.completionNotice;
 }
 
 function setView(view) { state.view = view; state.overlay = null; state.overlayEntered = true; render(); }
@@ -790,7 +809,22 @@ document.querySelectorAll('[data-control]').forEach(button => button.addEventLis
   }
   if (control === 'create-random') addTask('random');
   if (control === 'create-designated') addTask('designated');
-  if (control === 'finish-latest') finishLatest();
+  if (control === 'finish-latest') {
+    finishLatest();
+    if (state.completionNotice) {
+      showOverlay('completion');
+      return;
+    }
+  }
+  if (control === 'show-completion' && state.completionNotice) {
+    showOverlay('completion');
+    return;
+  }
+  if (control === 'clear-completion') {
+    state.completionNotice = null;
+    if (state.overlay === 'completion') state.overlay = null;
+    persistCompletionNotice(null);
+  }
   render();
 }));
 

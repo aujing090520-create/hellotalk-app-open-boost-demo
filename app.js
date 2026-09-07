@@ -295,11 +295,17 @@ function renderCompletionNotice() {
   const notice = state.completionNotice;
   if (!notice) return '';
   const isRandom = notice.type === 'random';
-  const description = isRandom ? '随机推荐已结束，本次数据如下' : `${notice.name} 的指定开屏推荐已结束`;
+  const isShown = notice.status === '已展示';
+  const result = isRandom
+    ? `<span class="completion-result-kicker">本次推荐完成</span><strong>已展示 <b>${notice.shown}</b><small>人</small></strong>`
+    : `<span class="completion-result-kicker">本次推荐已结束</span><strong>${notice.name || '指定语伴'} ${isShown ? '已展示' : '未展示'}</strong>`;
   const metrics = isRandom
-    ? `<div><span>已展示人数</span><strong>${notice.shown}<small>人</small></strong></div><div><span>访客数</span><strong>${notice.visitors}<small>人</small></strong></div>`
-    : `<div><span>展示对象</span><strong>${notice.name}</strong></div><div><span>投放状态</span><strong>${notice.status}</strong></div>`;
-  return `<div class="overlay completion-overlay"><section class="completion-dialog" role="dialog" aria-modal="true" aria-labelledby="completion-title"><i class="completion-mark">✓</i><h3 id="completion-title">上次推荐已结束</h3><p>${description}</p><div class="completion-summary"><div class="completion-summary-head"><span>${isRandom ? '随机推荐' : '指定语伴'}</span><em>${notice.status}</em></div><div class="completion-metrics">${metrics}</div></div><div class="completion-actions"><button class="secondary" data-action="completion-close">知道了</button><button class="confirm" data-action="completion-records">查看投放记录</button></div></section></div>`;
+    ? `<div class="completion-metric"><span>访客数</span><strong>${notice.visitors}<small>人</small></strong></div>`
+    : `<div class="completion-metric"><span>展示对象</span><strong>${notice.name || '—'}</strong></div><div class="completion-metric"><span>投放状态</span><strong class="${isShown ? 'is-success' : 'is-muted'}">${notice.status || '—'}</strong></div>`;
+  const repeatData = isRandom
+    ? 'data-action="completion-repeat" data-mode="random"'
+    : `data-action="completion-repeat" data-mode="designated" data-name="${notice.name || ''}"`;
+  return `<div class="overlay completion-overlay"><section class="completion-sheet${state.overlayEntered ? '' : ' is-entering'}" role="dialog" aria-modal="true" aria-labelledby="completion-title"><i class="sheet-handle"></i><header class="completion-sheet-head"><button data-action="completion-close" aria-label="关闭">×</button><h2 id="completion-title">开屏推荐已结束</h2><span aria-hidden="true"></span></header><main class="completion-sheet-body"><article class="completion-result-card"><div class="completion-result-copy"><em>${isRandom ? '随机推荐' : '指定语伴'}</em>${result}</div><i class="completion-splash-ip" aria-hidden="true"><b></b><span></span></i><div class="completion-result-metrics ${isRandom ? 'is-random' : ''}">${metrics}</div></article></main><footer class="completion-sheet-footer"><button class="completion-repeat" ${repeatData}>再次推荐</button></footer></section></div>`;
 }
 
 function downloadPreviewImage(task) {
@@ -605,10 +611,17 @@ app.addEventListener('click', (event) => {
     render();
     return;
   }
-  if (action === 'completion-records') {
+  if (action === 'completion-repeat') {
+    const mode = element.dataset.mode;
     state.completionNotice = null;
     persistCompletionNotice(null);
-    showOverlay('records');
+    state.mode = mode === 'designated' ? 'designated' : 'random';
+    state.selectedFriend = state.mode === 'designated' && element.dataset.name
+      ? { name: element.dataset.name, initial: element.dataset.name[0], className: element.dataset.name === 'Mia' ? 'mia' : 'noah' }
+      : null;
+    state.overlay = null;
+    state.overlayEntered = true;
+    render();
     return;
   }
   if (action === 'nav') setView(element.dataset.target);

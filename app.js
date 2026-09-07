@@ -168,7 +168,12 @@ const friendOptions = [
   { name: 'Noah', initial: 'N', className: 'noah', active: true, note: '刚刚在线' },
   { name: 'Ava', initial: 'A', className: '', active: true, note: '10 分钟前在线' },
   { name: 'Lina', initial: 'L', className: 'noah', active: true, note: '2 小时前在线' },
-  { name: 'Eric', initial: 'E', className: '', active: true, note: '今天在线' }
+  { name: 'Eric', initial: 'E', className: '', active: true, note: '今天在线' },
+  { name: 'Sora', initial: 'S', className: 'mia', active: true, note: '刚刚在线' },
+  { name: 'June', initial: 'J', className: '', active: true, note: '30 分钟前在线' },
+  { name: 'Kai', initial: 'K', className: 'noah', active: true, note: '1 小时前在线' },
+  { name: 'Nina', initial: 'N', className: 'mia', active: true, note: '今天在线' },
+  { name: 'Owen', initial: 'O', className: '', active: true, note: '昨天在线' }
 ];
 
 function designatedPrice() {

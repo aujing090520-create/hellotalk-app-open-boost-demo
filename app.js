@@ -61,7 +61,7 @@ const rules = [
   { id: 'FR-002/1', text: '顶部仅外显最新未结束任务。', target: 'banner', view: 'main' },
   { id: 'FR-003/1', text: '照片来源支持头像、拍照、相册。', target: 'cover', view: 'main' },
   { id: 'FR-003/2', text: '选择商品模版时可查看模版预览。', target: 'template', view: 'main', overlay: 'template' },
-  { id: 'FR-004/3', text: '非 Plus 指定语伴置灰，点击引导开通。', target: 'designated', view: 'main' },
+  { id: 'FR-004/3', text: '指定语伴对所有用户开放，可作为随机推荐的增值投放或单独投放。', target: 'designated', view: 'main' },
   { id: 'FR-005/1', text: '随机推荐提供 500 / 1000 / 2000 / 3000 四档。', target: 'packages', view: 'main' },
   { id: 'FR-005/4', text: '立即推荐是唯一提交动作。', target: 'purchase', view: 'main' },
   { id: 'FR-007/3', text: '指定语伴记录显示对象与投放状态。', target: 'records', view: 'main', overlay: 'records' },
@@ -70,7 +70,6 @@ const rules = [
 
 const state = {
   view: 'main',
-  isPlus: true,
   review: false,
   overlay: null,
   overlayEntered: true,
@@ -80,6 +79,7 @@ const state = {
   template: 0,
   copy: 0,
   mode: 'random',
+  audience: 'default',
   selectedProductIds: { random: 'open-r-500', designated: 'open-d-1' },
   backendType: 'random',
   adminPage: demoVersion.includes('placement-group') ? 'placement' : 'products',
@@ -89,6 +89,9 @@ const state = {
   adminPlacementDraftIds: [],
   adminPlacementDraft: { name: '', description: '', category: '开屏推荐' },
   selectedFriend: null,
+  selectedFriends: [],
+  friendDraft: [],
+  customGender: '全部',
   agreed: true,
   activeTasks: [],
   records: [...initialRecords],
@@ -160,6 +163,30 @@ function taskCopy(task) {
   return { title: '等待对方打开 App', detail: `${task.name} · 剩余 ${task.remaining} 小时` };
 }
 
+const friendOptions = [
+  { name: 'Mia', initial: 'M', className: 'mia', active: false, note: '超过 3 天未登录' },
+  { name: 'Noah', initial: 'N', className: 'noah', active: true, note: '刚刚在线' },
+  { name: 'Ava', initial: 'A', className: '', active: true, note: '10 分钟前在线' },
+  { name: 'Lina', initial: 'L', className: 'noah', active: true, note: '2 小时前在线' },
+  { name: 'Eric', initial: 'E', className: '', active: true, note: '今天在线' }
+];
+
+function designatedPrice() {
+  const product = selectedProduct('designated');
+  return product ? product.price * state.selectedFriends.length : 0;
+}
+
+function designatedListPrice() {
+  const product = selectedProduct('designated');
+  return product ? product.listPrice * state.selectedFriends.length : 0;
+}
+
+function selectedFriendSummary() {
+  if (!state.selectedFriends.length) return '选择指定语伴（可选）';
+  if (state.selectedFriends.length === 1) return `已选择 ${state.selectedFriends[0].name}`;
+  return `已选择 ${state.selectedFriends.length} 位语伴`;
+}
+
 function renderMain() {
   const latest = state.activeTasks[0];
   const banner = latest ? (() => {
@@ -174,19 +201,22 @@ function renderMain() {
   const randomProducts = visibleProducts('random');
   const randomProduct = selectedProduct('random');
   const designatedProduct = selectedProduct('designated');
-  const designatedDisabled = !state.isPlus || !designatedProduct;
-  const selectedFriend = state.selectedFriend;
-  const activeProduct = state.mode === 'designated' ? designatedProduct : randomProduct;
-  const canSubmit = ready && !!activeProduct && (state.mode === 'random' || !!selectedFriend) && state.agreed;
-  const showCtaPrice = ready && !!activeProduct && (state.mode === 'random' || !!selectedFriend);
+  const isDesignatedOnly = state.mode === 'designated';
+  const hasDesignated = state.selectedFriends.length > 0;
+  const randomPrice = randomProduct?.price || 0;
+  const randomListPrice = randomProduct?.listPrice || 0;
+  const currentPrice = isDesignatedOnly ? designatedPrice() : randomPrice + designatedPrice();
+  const currentListPrice = isDesignatedOnly ? designatedListPrice() : randomListPrice + designatedListPrice();
+  const canSubmit = ready && (isDesignatedOnly ? hasDesignated && !!designatedProduct : !!randomProduct) && state.agreed;
+  const showCtaPrice = ready && (isDesignatedOnly ? hasDesignated && !!designatedProduct : !!randomProduct);
   const buttonText = !state.photoSelected ? '选择照片' : !state.templateSelected ? '选择风格' : '选择投放对象';
-  const purchaseContent = showCtaPrice ? `<em class="vip-price-tag">VIP 专享价</em><span class="cta-price"><span class="cta-current"><i class="currency-mark">HT</i><b>${activeProduct.price} 币</b></span><del>${activeProduct.listPrice} 币</del></span>` : buttonText;
-  const purchaseLabel = state.mode === 'random'
+  const purchaseContent = showCtaPrice ? `<em class="vip-price-tag">优惠价</em><span class="cta-price"><span class="cta-current"><i class="currency-mark">HT</i><b>${currentPrice} 币</b></span><del>${currentListPrice} 币</del></span>` : buttonText;
+  const purchaseLabel = !isDesignatedOnly
     ? `<span>选择推荐人数</span><button class="purchase-help" data-action="mode-help" data-help="package-duration" aria-label="查看推荐时长说明"></button>${state.modeHelp === 'package-duration' ? '<span class="purchase-tip" role="tooltip">每500次最多推荐48小时，可重复叠加，到达时间后即自动结束推荐。</span>' : ''}`
     : `<span>选择投放对象</span><button class="purchase-help" data-action="mode-help" data-help="duration" aria-label="查看推荐时长说明"></button>${state.modeHelp === 'duration' ? '<span class="purchase-tip" role="tooltip">最多曝光48小时，到达时候后即自动结束推荐</span>' : ''}`;
-  const packageHtml = state.mode === 'random'
+  const packageHtml = !isDesignatedOnly
     ? `<div class="package-grid package-count-${Math.max(1, randomProducts.length)}" data-rule-target="packages">${anchor('packages', '5')}${randomProducts.length ? randomProducts.map(product => `<button class="package ${state.selectedProductIds.random === product.id ? 'is-selected' : ''}" data-action="package" data-product-id="${product.id}">${product.recommendCount}<small>${savingText(product)}</small></button>`).join('') : '<p class="package-empty">暂无可投放的随机推荐商品</p>'}</div>`
-    : `<button class="designated-bar" ${designatedProduct ? 'data-action="open-friends"' : 'disabled'}>${selectedFriend ? `<span class="avatar ${selectedFriend.className}">${selectedFriend.initial}</span>` : '<span class="select-partner-icon" aria-hidden="true"><i>+</i></span>'}<span>${designatedProduct ? (selectedFriend ? `指定给 ${selectedFriend.name}` : '请选择投放对象') : '暂无可投放商品'}</span>${designatedProduct ? `<strong style="margin-left:auto;color:var(--open-primary)">${designatedProduct.price} 币</strong><i class="chevron">›</i>` : ''}</button>`;
+    : '';
 
   return `${statusBar()}<section class="screen main-screen">
     <header class="boost-head"><button class="boost-close" data-action="close" aria-label="关闭">×</button><h2>加热中心</h2></header>
@@ -195,7 +225,7 @@ function renderMain() {
       ${banner}
       ${hero}
       <section class="section"><div class="card setting-card" data-rule-target="cover">${anchor('cover', '3')}<button class="setting-row" data-action="photo-sheet"><span><strong>选择照片</strong><small>${state.photoSelected ? (state.photoSource === 'avatar' ? '已选择头像' : '已选择照片') : '使用头像或从相册选择'}</small></span><i class="setting-thumb ${state.photoSelected ? (state.photoSource === 'avatar' ? 'photo is-avatar' : 'photo is-photo') : ''}"></i><i class="chevron">›</i></button><button class="setting-row" data-action="open-template"><span><strong>选择风格</strong><small>${styleNames[state.template]}</small></span><i class="template-thumb style-${state.template}"></i><i class="chevron">›</i></button></div></section>
-      <section class="section"><div class="card delivery-card"><div class="card-title-line"><h3 class="setting-card-title">投放方式</h3><button class="history-link" data-action="open-records">投放记录 ›</button></div><div class="mode-grid"><div class="mode-option"><button class="mode-card ${state.mode === 'random' ? 'is-selected' : ''}" data-action="mode" data-mode="random"><strong>随机推荐</strong></button><button class="mode-help" data-action="mode-help" data-help="random" aria-label="查看随机推荐说明"></button>${state.modeHelp === 'random' ? '<div class="mode-tip" role="tooltip">按照你的语言进行算法推荐</div>' : ''}</div><div class="mode-option"><button class="mode-card ${state.mode === 'designated' ? 'is-selected' : ''} ${designatedDisabled ? 'is-disabled' : ''}" data-action="mode" data-mode="designated" data-rule-target="designated">${anchor('designated', '4')}<strong>指定语伴</strong>${designatedDisabled ? '<em class="vip-plus-badge" aria-label="VIP Plus">VIP<span>+</span></em>' : ''}</button><button class="mode-help" data-action="mode-help" data-help="designated" aria-label="查看指定语伴说明"></button>${state.modeHelp === 'designated' ? '<div class="mode-tip mode-tip-right" role="tooltip">选择一名与你互相关注的语伴</div>' : ''}</div></div></div></section>
+      <section class="section"><div class="card delivery-card"><div class="card-title-line"><h3 class="setting-card-title">投放方式</h3><button class="history-link" data-action="open-records">投放记录 ›</button></div><div class="mode-grid"><div class="mode-option"><button class="mode-card ${!isDesignatedOnly ? 'is-selected' : ''}" data-action="mode" data-mode="random"><strong>随机推荐</strong><small>推荐给匹配的新朋友</small></button></div><div class="mode-option"><button class="mode-card ${isDesignatedOnly ? 'is-selected' : ''}" data-action="mode" data-mode="designated" data-rule-target="designated">${anchor('designated', '4')}<strong>仅指定语伴</strong><small>只让指定语伴看见</small></button><button class="mode-help" data-action="mode-help" data-help="designated" aria-label="查看指定语伴说明"></button>${state.modeHelp === 'designated' ? '<div class="mode-tip mode-tip-right" role="tooltip">选择与你互相关注的语伴，可一次选择最多 10 位</div>' : ''}</div></div>${!isDesignatedOnly ? `<div class="audience-setting"><div class="audience-title"><strong>推荐人群</strong><span>优先推荐给更合适的人</span></div><div class="mode-grid"><div class="mode-option"><button class="mode-card ${state.audience === 'default' ? 'is-selected' : ''}" data-action="audience" data-audience="default"><strong>默认条件</strong></button><button class="mode-help" data-action="mode-help" data-help="audience-default" aria-label="查看默认条件说明"></button>${state.modeHelp === 'audience-default' ? '<div class="mode-tip" role="tooltip">优先推荐给语言互相匹配的人群</div>' : ''}</div><div class="mode-option"><button class="mode-card ${state.audience === 'custom' ? 'is-selected' : ''}" data-action="audience" data-audience="custom"><strong>自定义</strong></button><button class="mode-help" data-action="mode-help" data-help="audience-custom" aria-label="查看自定义条件说明"></button>${state.modeHelp === 'audience-custom' ? '<div class="mode-tip mode-tip-right" role="tooltip">按条件优先推荐给相似人群</div>' : ''}</div></div></div><button class="partner-addon" ${designatedProduct ? 'data-action="open-friends"' : 'disabled'}><span class="select-partner-icon" aria-hidden="true"><i>+</i></span><span><strong>${selectedFriendSummary()}</strong><small>可选增值：${designatedProduct?.price || 0} 币 / 人，不占用随机推荐人数</small></span>${hasDesignated ? `<em>${designatedPrice()} 币</em>` : ''}<i class="chevron">›</i></button>` : `<button class="partner-addon designated-only" ${designatedProduct ? 'data-action="open-friends"' : 'disabled'}><span class="select-partner-icon" aria-hidden="true"><i>+</i></span><span><strong>${selectedFriendSummary()}</strong><small>${designatedProduct ? `${designatedProduct.price} 币 / 人 · 每位独立展示 1 次` : '暂无可投放商品'}</small></span>${hasDesignated ? `<em>${designatedPrice()} 币</em>` : ''}<i class="chevron">›</i></button>`}</div></section>
     </main>
     <footer class="purchase-bar"><p class="purchase-label">${purchaseLabel}</p>${packageHtml}<button class="agreement" data-action="agreement"><i class="check ${state.agreed ? 'is-checked' : ''}">${state.agreed ? '✓' : ''}</i>我已阅读并同意<a>《开屏推荐协议》</a></button><button class="primary ${showCtaPrice ? 'has-price' : ''}" ${canSubmit ? '' : 'disabled'} data-action="submit" data-rule-target="purchase">${anchor('purchase', '6')}${purchaseContent}</button></footer>
   </section>`;
@@ -210,12 +240,14 @@ function renderTemplateSheet() {
 }
 
 function renderFriends() {
-  const friends = [
-    { name: 'Mia', initial: 'M', className: 'mia', active: false, note: '超过 3 天未登录' },
-    { name: 'Noah', initial: 'N', className: 'noah', active: true, note: '刚刚在线' },
-    { name: 'Ava', initial: 'A', className: '', active: true, note: '10 分钟前在线' }
-  ];
-  return `${statusBar()}<section class="screen subpage"><header class="page-head">${backButton()}<h2>选择指定语伴</h2><span class="head-icon"></span></header><main class="sub-content"><input class="friend-search" placeholder="搜索互关语伴" aria-label="搜索互关语伴" /><div class="friend-list">${friends.map(friend => `<button class="friend" data-action="friend" data-name="${friend.name}" data-initial="${friend.initial}" data-class="${friend.className}" data-active="${friend.active}"><span class="avatar ${friend.className}">${friend.initial}</span><span class="friend-info"><strong>${friend.name}</strong><span>${friend.note}</span></span><i class="${friend.active ? 'online' : 'offline'}"></i><i class="chevron">›</i></button>`).join('')}</div></main></section>`;
+  const draft = state.friendDraft;
+  const selected = new Set(draft.map(friend => friend.name));
+  return `${statusBar()}<section class="screen subpage"><header class="page-head">${backButton()}<h2>选择指定语伴</h2><span class="head-icon"></span></header><main class="sub-content friend-page-content"><p class="friend-page-tip">选择最多 10 位互关语伴；每位语伴独立展示 1 次。</p><input class="friend-search" placeholder="搜索互关语伴" aria-label="搜索互关语伴" /><div class="friend-list">${friendOptions.map(friend => `<button class="friend ${selected.has(friend.name) ? 'is-selected' : ''}" data-action="friend" data-name="${friend.name}" data-initial="${friend.initial}" data-class="${friend.className}" data-active="${friend.active}"><span class="avatar ${friend.className}">${friend.initial}</span><span class="friend-info"><strong>${friend.name}</strong><span>${friend.note}</span></span><i class="${friend.active ? 'online' : 'offline'}"></i><i class="friend-check">${selected.has(friend.name) ? '✓' : ''}</i></button>`).join('')}</div></main><footer class="friend-select-footer"><span>已选择 <b>${draft.length}</b> / 10 位</span><button class="primary" data-action="friend-confirm" ${draft.length ? '' : 'disabled'}>确认选择</button></footer></section>`;
+}
+
+function renderCustomAudienceSheet() {
+  const option = (label, value) => `<button class="custom-filter-row" data-action="custom-filter"><span><small>${label}</small><strong>${value}</strong></span><i class="chevron">›</i></button>`;
+  return `<div class="overlay custom-overlay"><section class="custom-audience-sheet${state.overlayEntered ? '' : ' is-entering'}" role="dialog" aria-modal="true" aria-labelledby="custom-audience-title"><i class="sheet-handle"></i><header class="custom-audience-head"><button data-action="overlay-close" aria-label="关闭">×</button><div><h2 id="custom-audience-title">自定义</h2><p>优先满足条件，算法智能拓展相似人群</p></div><span></span></header><main class="custom-audience-content">${option('母语', '任何')}${option('学习语言', '任何')}${option('国籍 / 地区', '任何')}${option('城市 / 州 / 国家', '任何')}<section class="custom-gender"><div><strong>性别</strong><em>${state.customGender}</em></div><div class="custom-gender-options">${['全部', '女', '男'].map(value => `<button class="${state.customGender === value ? 'is-selected' : ''}" data-action="custom-gender" data-gender="${value}">${value}</button>`).join('')}</div></section><section class="custom-age"><div><strong>年龄</strong><em>18-90+</em></div><div class="age-range"><i></i><b></b><b></b></div><span><small>18</small><small>90+</small></span></section></main><footer class="custom-audience-footer"><button class="custom-reset" data-action="custom-reset">重置</button><button class="primary" data-action="custom-confirm">确认</button></footer></section></div>`;
 }
 
 function renderSplashPreview() {
@@ -283,9 +315,9 @@ function overlay() {
   if (state.overlay === 'active-tasks') return renderActiveTasksSheet();
   if (state.overlay === 'audience') return renderAudienceSheet();
   if (state.overlay === 'completion') return renderCompletionNotice();
+  if (state.overlay === 'custom-audience') return renderCustomAudienceSheet();
   if (state.overlay === 'photo') return `<div class="overlay"><div class="sheet${enterClass}"><i class="sheet-handle"></i><h3>请选择照片</h3><button class="sheet-action" data-action="photo-select" data-source="avatar">使用头像</button><button class="sheet-action" data-action="photo-select" data-source="album">拍照/相册</button><button class="sheet-action sheet-cancel" data-action="overlay-close">取消</button></div></div>`;
   if (state.overlay === 'preview') return `<div class="overlay"><div class="dialog${enterClass}"><h3>商品模版预览</h3><div class="mini-cover" style="margin:14px 0 12px">第一眼很短，认识你可以很长。</div><p>实际开屏文案会按接收者的界面语言展示。</p><div class="dialog-actions"><button class="confirm" data-action="overlay-close">知道了</button></div></div></div>`;
-  if (state.overlay === 'plus') return `<div class="overlay"><div class="dialog${enterClass}"><h3>指定语伴为 Plus 专享</h3><p>开通 Plus 后，可付费让 1 位互关语伴在打开 App 时第一眼看到你。</p><div class="dialog-actions"><button class="secondary" data-action="overlay-close">暂不</button><button class="confirm" data-action="overlay-close">开通 Plus</button></div></div></div>`;
   if (state.overlay === 'inactive') return `<div class="overlay"><div class="dialog${enterClass}"><h3>${state.pendingFriend?.name || '这位语伴'} 已超过 3 天未登录</h3><p>${state.pendingFriend?.name || '对方'} 下次打开 App 时将看到你的开屏封面。48 小时内未打开，推荐自动结束。</p><div class="dialog-actions"><button class="secondary" data-action="overlay-close">换一位语伴</button><button class="confirm" data-action="confirm-inactive">仍然选择</button></div></div></div>`;
   if (state.overlay === 'created') return `<div class="overlay"><div class="dialog${enterClass}"><h3>已开始生成开屏封面</h3><p>完成后将自动开始推荐，你可在开屏推荐顶部查看状态。</p><div class="dialog-actions"><button class="confirm" data-action="overlay-close">知道了</button></div></div></div>`;
   return '';
@@ -475,14 +507,13 @@ function renderDemoTools() {
   const completion = document.querySelector('[data-control="show-completion"]');
   if (!status || !finish || !completion) return;
   const latest = state.activeTasks[0];
-  const identity = state.isPlus ? 'Plus' : '普通用户';
   const active = latest
     ? latest.type === 'random'
       ? `随机 · ${latest.shown} / ${latest.total} 人`
       : `指定 · ${latest.name} · ${latest.remaining} 小时`
     : '无';
   const notice = state.completionNotice ? '待查看' : '未显示';
-  status.textContent = `身份：${identity} · 进行中：${active} · 回访通知：${notice}`;
+  status.textContent = `进行中：${active} · 回访通知：${notice}`;
   finish.disabled = !latest;
   completion.disabled = !state.completionNotice;
 }
@@ -499,10 +530,11 @@ function showOverlay(type) {
 function addTask(type) {
   const product = selectedProduct(type);
   if (!product) return;
-  const task = type === 'designated'
-    ? { id: Date.now(), type: 'designated', productId: product.id, productName: product.name, price: product.price, name: 'Mia', shown: 0, remaining: 42, photoSource: state.photoSource, style: state.template, copy: state.copy }
-    : { id: Date.now(), type: 'random', productId: product.id, productName: product.name, price: product.price, total: product.recommendCount, shown: Math.min(128, product.recommendCount), visitors: 9, remaining: 42, photoSource: state.photoSource, style: state.template, copy: state.copy };
-  state.activeTasks.unshift(task);
+  if (type === 'designated') {
+    state.selectedFriends.forEach((friend, index) => state.activeTasks.unshift({ id: Date.now() + index, type: 'designated', productId: product.id, productName: product.name, price: product.price, name: friend.name, shown: 0, remaining: 42, photoSource: state.photoSource, style: state.template, copy: state.copy }));
+    return;
+  }
+  state.activeTasks.unshift({ id: Date.now(), type: 'random', productId: product.id, productName: product.name, price: product.price, total: product.recommendCount, shown: Math.min(128, product.recommendCount), visitors: 9, remaining: 42, photoSource: state.photoSource, style: state.template, copy: state.copy });
 }
 
 function finishLatest() {
@@ -648,9 +680,10 @@ app.addEventListener('click', (event) => {
     state.completionNotice = null;
     persistCompletionNotice(null);
     state.mode = mode === 'designated' ? 'designated' : 'random';
-    state.selectedFriend = state.mode === 'designated' && element.dataset.name
-      ? { name: element.dataset.name, initial: element.dataset.name[0], className: element.dataset.name === 'Mia' ? 'mia' : 'noah' }
-      : null;
+    state.selectedFriends = state.mode === 'designated' && element.dataset.name
+      ? [{ name: element.dataset.name, initial: element.dataset.name[0], className: element.dataset.name === 'Mia' ? 'mia' : 'noah' }]
+      : [];
+    state.selectedFriend = state.selectedFriends[0] || null;
     state.overlay = null;
     state.overlayEntered = true;
     render();
@@ -659,15 +692,26 @@ app.addEventListener('click', (event) => {
   if (action === 'nav') setView(element.dataset.target);
   if (action === 'open-records') showOverlay('records');
   if (action === 'copy-record') { state.overlay = null; state.overlayEntered = true; render(); }
-  if (action === 'repeat-random') { state.mode = 'random'; state.selectedFriend = null; state.overlay = null; state.overlayEntered = true; render(); }
-  if (action === 'repeat-designated') { state.mode = 'designated'; state.selectedFriend = { name: element.dataset.name, initial: element.dataset.initial, className: element.dataset.class }; state.overlay = null; state.overlayEntered = true; render(); }
+  if (action === 'repeat-random') { state.mode = 'random'; state.selectedFriend = null; state.selectedFriends = []; state.overlay = null; state.overlayEntered = true; render(); }
+  if (action === 'repeat-designated') { state.mode = 'designated'; state.selectedFriends = [{ name: element.dataset.name, initial: element.dataset.initial, className: element.dataset.class }]; state.selectedFriend = state.selectedFriends[0]; state.overlay = null; state.overlayEntered = true; render(); }
   if (action === 'close') { state.view = 'main'; render(); }
   if (action === 'mode') {
-    if (element.dataset.mode === 'designated' && !state.isPlus) { showOverlay('plus'); return; }
     if (element.dataset.mode === 'designated' && !selectedProduct('designated')) return;
-    else { state.mode = element.dataset.mode; state.modeHelp = null; if (state.mode === 'random') state.selectedFriend = null; }
+    state.mode = element.dataset.mode;
+    state.modeHelp = null;
     render();
   }
+  if (action === 'audience') {
+    state.audience = element.dataset.audience;
+    state.modeHelp = null;
+    if (state.audience === 'custom') showOverlay('custom-audience');
+    else render();
+    return;
+  }
+  if (action === 'custom-filter') return;
+  if (action === 'custom-gender') { state.customGender = element.dataset.gender; render(); return; }
+  if (action === 'custom-reset') { state.customGender = '全部'; render(); return; }
+  if (action === 'custom-confirm') { state.overlay = null; state.overlayEntered = true; render(); return; }
   if (action === 'package') { state.selectedProductIds.random = element.dataset.productId; render(); }
   if (action === 'agreement') { state.agreed = !state.agreed; render(); }
   if (action === 'photo-sheet') showOverlay('photo');
@@ -678,19 +722,27 @@ app.addEventListener('click', (event) => {
   if (action === 'refresh-copy') { state.copy = (state.copy + 1) % 3; render(); }
   if (action === 'preview-template') showOverlay('preview');
   if (action === 'cover-done') { state.templateSelected = true; state.overlay = null; render(); }
-  if (action === 'open-friends') setView('friends');
+  if (action === 'open-friends') { state.friendDraft = [...state.selectedFriends]; setView('friends'); }
   if (action === 'friend') {
     const friend = { name: element.dataset.name, initial: element.dataset.initial, className: element.dataset.class };
+    const exists = state.friendDraft.some(item => item.name === friend.name);
+    if (exists) { state.friendDraft = state.friendDraft.filter(item => item.name !== friend.name); render(); return; }
+    if (state.friendDraft.length >= 10) return;
     if (element.dataset.active === 'false') { state.pendingFriend = friend; showOverlay('inactive'); }
-    else { state.selectedFriend = friend; setView('main'); }
+    else { state.friendDraft = [...state.friendDraft, friend]; render(); }
   }
-  if (action === 'confirm-inactive') { state.selectedFriend = state.pendingFriend; state.pendingFriend = null; setView('main'); }
+  if (action === 'confirm-inactive') { state.friendDraft = [...state.friendDraft, state.pendingFriend]; state.pendingFriend = null; state.overlay = null; state.overlayEntered = true; render(); }
+  if (action === 'friend-confirm') { state.selectedFriends = [...state.friendDraft]; state.selectedFriend = state.selectedFriends[0] || null; setView('main'); }
   if (action === 'submit') {
     if (!state.photoSelected) { showOverlay('photo'); return; }
     if (!state.templateSelected) { showOverlay('template'); return; }
-    if (state.mode === 'designated' && !state.selectedFriend) { setView('friends'); return; }
+    if (state.mode === 'designated' && !state.selectedFriends.length) { state.friendDraft = [...state.selectedFriends]; setView('friends'); return; }
     if (!state.agreed) { render(); return; }
-    addTask(state.mode); showOverlay('created');
+    if (state.mode === 'random') {
+      addTask('random');
+      if (state.selectedFriends.length) addTask('designated');
+    } else addTask('designated');
+    showOverlay('created');
   }
   if (action === 'overlay-close') { state.overlay = null; state.overlayEntered = true; render(); }
 });
@@ -847,11 +899,6 @@ document.querySelector('#reviewToggle').addEventListener('change', (event) => {
 
 document.querySelectorAll('[data-control]').forEach(button => button.addEventListener('click', () => {
   const control = button.dataset.control;
-  if (control === 'plus' || control === 'normal') {
-    state.isPlus = control === 'plus';
-    document.querySelectorAll('.control-choice').forEach(item => item.classList.toggle('is-active', item === button));
-    if (!state.isPlus && state.mode === 'designated') state.mode = 'random';
-  }
   if (control === 'create-random') addTask('random');
   if (control === 'create-designated') addTask('designated');
   if (control === 'completion-random-complete') return simulateCompletion('random', 'complete');

@@ -433,7 +433,9 @@ button { font: inherit; border: 0; cursor: pointer; }
 .material-row .chevron { margin-left: 0; }
 .compact-delivery { padding: 10px 14px 6px; }
 .compact-delivery .card-title-line { margin-bottom: 7px; }
-.compact-history { display: grid; width: 27px; height: 27px; place-items: center; border-radius: 50%; color: #898a92; background: #f5f5f7; font-size: 16px; }
+.compact-history { display: inline-flex; align-items: center; gap: 2px; height: 24px; padding: 0; color: #9a9aa0; background: transparent; font-size: 0; }
+.compact-history::before { content: "历史记录"; font-size: 12px; font-weight: 500; }
+.compact-history::after { content: "›"; margin-top: -1px; color: #999aa1; font-size: 20px; font-weight: 400; line-height: 16px; }
 .compact-mode-grid { gap: 9px; }
 .compact-mode { min-height: 71px; padding: 10px 9px 9px; border-radius: 13px; }
 .compact-mode small { display: none; }

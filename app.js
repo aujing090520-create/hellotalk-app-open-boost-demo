@@ -201,7 +201,7 @@ function renderMain() {
       ${anchor('banner', '2')}<button class="task-banner-main" aria-label="查看进行中投放详情" data-action="open-active-task"><i class="banner-dot"></i><span class="banner-text"><strong>${copy.title}</strong><span>${copy.detail}</span>${progress}</span></button><button class="task-preview" aria-label="预览开屏效果" data-action="open-latest-preview">预览</button>
     </div>`;
   })() : '';
-  const hero = '<section class="open-cover-banner compact-hero" aria-label="开屏推荐介绍"><div class="compact-banner-photo" aria-hidden="true"></div><div class="open-cover-copy"><span>开屏推荐</span><strong>第一眼，遇见你</strong></div></section>';
+  const hero = '<section class="open-cover-banner" aria-label="开屏推荐介绍"><div class="banner-portrait" aria-hidden="true"><b><i></i>HelloTalk</b><span class="banner-portrait-photo"></span><em><i>✦</i> 今日开屏人物</em></div><div class="open-cover-copy"><span>开屏推荐</span><strong>让新朋友<br>第一眼看见你</strong><p>打开 App，就有机会遇见你</p><i class="banner-benefit">专属开屏封面</i></div></section>';
   const ready = state.photoSelected && state.templateSelected;
   const randomProducts = visibleProducts('random');
   const randomProduct = selectedProduct('random');

@@ -459,6 +459,7 @@ button { font: inherit; border: 0; cursor: pointer; }
 .minimal-partner em { font-size: 12px; }
 /* Keep the decision hierarchy, but remove the stacked-card weight in the delivery area. */
 .compact-delivery { padding-bottom: 6px; }
+.compact-delivery .setting-card-title { font-size: 15px; line-height: 20px; }
 .compact-mode-grid { gap: 0; padding: 4px; border-radius: 13px; background: #f4f4f6; }
 .compact-mode-grid .mode-option { min-width: 0; }
 .compact-mode { min-height: 52px; display: flex; align-items: center; gap: 7px; padding: 8px 10px; border: 0; border-radius: 10px; background: transparent; }

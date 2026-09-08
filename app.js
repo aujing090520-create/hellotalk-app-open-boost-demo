@@ -41,7 +41,7 @@ const productCatalog = {
     { id: 'open-r-3000', name: '3000 次推荐', recommendCount: 3000, exposureCount: 3000, price: 2690, listPrice: 3590, displayPrice: 3590, firstPrice: 2690, actualPrice: 2690, vipPrice: 2690, enabled: true }
   ],
   designated: [
-    { id: 'open-d-1', name: '指定 1 位语伴', recommendCount: 1, exposureCount: 1, price: 990, listPrice: 1190, displayPrice: 1190, firstPrice: 990, actualPrice: 990, vipPrice: 990, enabled: true }
+    { id: 'open-d-1', name: '指定 1 位语伴', recommendCount: 1, exposureCount: 1, price: 99, listPrice: 119, displayPrice: 119, firstPrice: 99, actualPrice: 99, vipPrice: 99, enabled: true }
   ]
 };
 
@@ -476,7 +476,7 @@ function renderProductDialog() {
   const { mode, productId } = state.adminDialog;
   const type = state.backendType;
   const dialogType = state.adminDialogType || type;
-  const product = mode === 'edit' ? productById(dialogType, productId) : { name: '', recommendCount: dialogType === 'random' ? 500 : 1, exposureCount: dialogType === 'random' ? 500 : 1, price: dialogType === 'random' ? 590 : 990, listPrice: dialogType === 'random' ? 690 : 1190, displayPrice: dialogType === 'random' ? 690 : 1190, firstPrice: dialogType === 'random' ? 590 : 990, actualPrice: dialogType === 'random' ? 590 : 990, vipPrice: dialogType === 'random' ? 590 : 990, enabled: true };
+  const product = mode === 'edit' ? productById(dialogType, productId) : { name: '', recommendCount: dialogType === 'random' ? 500 : 1, exposureCount: dialogType === 'random' ? 500 : 1, price: dialogType === 'random' ? 590 : 99, listPrice: dialogType === 'random' ? 690 : 119, displayPrice: dialogType === 'random' ? 690 : 119, firstPrice: dialogType === 'random' ? 590 : 99, actualPrice: dialogType === 'random' ? 590 : 99, vipPrice: dialogType === 'random' ? 590 : 99, enabled: true };
   const value = (key, fallback = '') => product[key] ?? fallback;
   const field = (label, id, fieldValue, unit, note = '', required = false) => `<div class="admin-config-field"><label>${required ? '<b>*</b>' : ''}${label}</label><div><div class="admin-unit-input"><input id="${id}" type="number" min="1" value="${fieldValue}" /><span>${unit}</span></div>${note ? `<p>${note}</p>` : ''}</div></div>`;
   const exposureNote = dialogType === 'random' ? '范围为 500 至 10000，且必须是 500 的倍数。' : '指定语伴商品固定曝光 1 次。';

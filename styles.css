@@ -463,11 +463,10 @@ button { font: inherit; border: 0; cursor: pointer; }
 .compact-mode-grid { gap: 0; padding: 4px; border-radius: 13px; background: #f4f4f6; }
 .compact-mode-grid .mode-option { min-width: 0; }
 .compact-mode { min-height: 52px; display: flex; align-items: center; gap: 7px; padding: 8px 10px; border: 0; border-radius: 10px; background: transparent; }
-.compact-mode.is-selected { border: 0; background: #fff; box-shadow: 0 1px 4px rgba(39,33,49,.11); }
+.compact-mode.is-selected { border: 0; background: #fff; box-shadow: inset 0 0 0 1.5px var(--open-primary); }
 .compact-mode-icon { width: 21px; height: 21px; flex: 0 0 21px; font-size: 21px; line-height: 19px; }
 .compact-mode strong { min-width: 0; margin: 0; overflow: hidden; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
-.compact-mode .mode-check { right: 8px; top: 8px; width: 15px; height: 15px; font-size: 9px; }
-.has-mode-help .compact-mode .mode-check { right: 33px; }
+.compact-mode .mode-check { display: none; }
 .compact-mode.is-selected strong { color: var(--open-primary); }
 .minimal-audience { min-height: 47px; margin-top: 8px; padding: 0; border-top: 1px solid #f0f0f2; border-left: 0; background: transparent; }
 .minimal-audience > strong { font-size: 12px; }

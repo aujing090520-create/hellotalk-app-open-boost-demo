@@ -457,6 +457,28 @@ button { font: inherit; border: 0; cursor: pointer; }
 .minimal-partner strong { font-size: 13px; }
 .minimal-partner small { display: inline; margin: 0 0 0 5px; font-size: 10px; }
 .minimal-partner em { font-size: 12px; }
+/* Keep the decision hierarchy, but remove the stacked-card weight in the delivery area. */
+.compact-delivery { padding-bottom: 6px; }
+.compact-mode-grid { gap: 0; padding: 4px; border-radius: 13px; background: #f4f4f6; }
+.compact-mode-grid .mode-option { min-width: 0; }
+.compact-mode { min-height: 52px; display: flex; align-items: center; gap: 7px; padding: 8px 10px; border: 0; border-radius: 10px; background: transparent; }
+.compact-mode.is-selected { border: 0; background: #fff; box-shadow: 0 1px 4px rgba(39,33,49,.11); }
+.compact-mode-icon { width: 21px; height: 21px; flex: 0 0 21px; font-size: 21px; line-height: 19px; }
+.compact-mode strong { min-width: 0; margin: 0; overflow: hidden; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
+.compact-mode .mode-check { right: 8px; top: 8px; width: 15px; height: 15px; font-size: 9px; }
+.compact-mode.is-selected strong { color: var(--open-primary); }
+.minimal-audience { min-height: 47px; margin-top: 8px; padding: 0; border-top: 1px solid #f0f0f2; border-left: 0; background: transparent; }
+.minimal-audience > strong { font-size: 12px; }
+.inline-help { width: 17px; height: 17px; margin-left: 5px; font-size: 11px; }
+.audience-switch { gap: 2px; padding: 3px; border-radius: 9px; }
+.audience-switch button { min-width: 41px; padding: 6px 7px; font-size: 11px; }
+.minimal-partner { min-height: 43px; margin-top: 0; padding: 5px 1px; }
+.minimal-partner .select-partner-icon { width: 27px; height: 27px; flex-basis: 27px; border-radius: 8px; }
+.minimal-partner .select-partner-icon::before { left: 8px; top: 4px; }
+.minimal-partner .select-partner-icon::after { left: 4px; bottom: 4px; }
+.minimal-partner strong { font-size: 12px; }
+.minimal-partner small { font-size: 9px; }
+.minimal-partner em { font-size: 11px; }
 .agreement { display: flex; align-items: center; gap: 6px; margin: 9px 0; color: var(--secondary); font-size: 10px; }
 .check { width: 16px; height: 16px; border: 1px solid #c9cad0; border-radius: 50%; background: #fff; color: #fff; line-height: 15px; text-align: center; font-size: 10px; }
 .check.is-checked { border-color: var(--open-primary); background: var(--open-primary); }

@@ -584,8 +584,8 @@ button { font: inherit; border: 0; cursor: pointer; }
 .friend-select-footer { position: absolute; right: 0; bottom: 0; left: 0; display: flex; align-items: center; gap: 12px; padding: 11px 16px 16px; border-top: 1px solid #ececef; background: #fff; box-shadow: 0 -6px 18px rgba(24,18,45,.04); }
 .friend-select-footer span { flex: 1; color: var(--secondary); font-size: 11px; }
 .friend-select-footer b { color: var(--open-primary); font-size: 14px; }
-.friend-select-footer .primary { position: relative; width: 145px; height: 42px; font-size: 14px; }
-.friend-price-badge { position: absolute; top: -12px; right: 0; padding: 3px 7px; border-radius: 8px 8px 3px 8px; color: #fff; background: #ff5a70; box-shadow: 0 3px 7px rgba(223,68,89,.2); font-size: 10px; font-style: normal; font-weight: 700; line-height: 14px; white-space: nowrap; }
+.friend-select-footer .primary { width: 145px; height: 42px; font-size: 14px; }
+.friend-selection-summary em { margin-left: 6px; padding-left: 7px; border-left: 1px solid #e5e5e8; color: var(--open-primary); font-size: 12px; font-style: normal; font-weight: 700; white-space: nowrap; }
 .screen.subpage:has(.friend-select-footer) { display: flex; flex-direction: column; overflow: hidden; }
 .screen.subpage:has(.friend-select-footer) .page-head { flex: 0 0 49px; }
 .screen.subpage:has(.friend-select-footer) .friend-page-content { min-height: 0; flex: 1 1 auto; overflow-y: auto; padding-bottom: 20px; scrollbar-width: none; }

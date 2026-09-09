@@ -578,6 +578,11 @@ button { font: inherit; border: 0; cursor: pointer; }
 .friend-select-footer span { flex: 1; color: var(--secondary); font-size: 11px; }
 .friend-select-footer b { color: var(--open-primary); font-size: 14px; }
 .friend-select-footer .primary { width: 145px; height: 42px; font-size: 14px; }
+.screen.subpage:has(.friend-select-footer) { display: flex; flex-direction: column; overflow: hidden; }
+.screen.subpage:has(.friend-select-footer) .page-head { flex: 0 0 49px; }
+.screen.subpage:has(.friend-select-footer) .friend-page-content { min-height: 0; flex: 1 1 auto; overflow-y: auto; padding-bottom: 20px; scrollbar-width: none; }
+.screen.subpage:has(.friend-select-footer) .friend-page-content::-webkit-scrollbar { display: none; }
+.screen.subpage:has(.friend-select-footer) .friend-select-footer { position: static; flex: 0 0 auto; }
 
 .detail-list, .record-list { margin: 10px 16px 0; overflow: hidden; border-radius: 12px; background: #fff; }
 .record-list { position: relative; }

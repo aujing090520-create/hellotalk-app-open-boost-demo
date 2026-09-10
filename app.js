@@ -103,6 +103,11 @@ const state = {
   audienceTask: null,
   audienceOrigin: null,
   audienceTab: 'shown',
+  placementDetail: null,
+  partnerInfo: null,
+  adminRecordFilters: { type: 'all', status: 'all', date: 'all' },
+  adminImportDialog: false,
+  adminImportText: '',
   selectedRule: null
 };
 
@@ -269,7 +274,28 @@ function renderSplashPreview() {
   const copies = ['很高兴认识你，愿这次相遇让今天更明亮。', '愿你今天的心情，也和这次相遇一样明亮。', '第一眼很短，认识你可以很长。'];
   const imageClass = task.photoSource === 'avatar' ? 'is-avatar' : `is-album style-${task.style}`;
   const saveAction = '<button class="preview-save-card" data-action="save-preview-image"><i class="preview-save-icon">↓</i><span>保存图片</span></button>';
-  return `${statusBar()}<section class="screen splash-preview-page"><header class="page-head"><button class="head-icon" data-action="preview-back" aria-label="返回">‹</button><h2>预览开屏效果</h2><span class="head-icon"></span></header><main class="splash-preview-content"><p>这是其他用户打开 HelloTalk 时看到的效果</p><section class="recipient-splash" aria-label="开屏效果预览"><div class="recipient-status"><span>15:07</span><span>◒ ◒ ▭</span></div><div class="recipient-brand"><i></i>HelloTalk</div><i class="recipient-cover ${imageClass}"></i><div class="recipient-copy"><strong>Hi，很高兴认识你</strong><span>${copies[task.copy || 0]}</span></div><button class="recipient-action">打个招呼</button></section>${saveAction}${state.previewSaved ? '<p class="preview-save-result" role="status">图片已保存</p>' : ''}<p class="splash-preview-note">开屏文案将按对方的界面语言展示</p></main></section>`;
+  const detailAction = state.previewOrigin === 'history'
+    ? '<button class="preview-detail-link" data-action="open-placement-detail">查看投放详情 <i>›</i></button>'
+    : '';
+  return `${statusBar()}<section class="screen splash-preview-page"><header class="page-head"><button class="head-icon" data-action="preview-back" aria-label="返回">‹</button><h2>预览开屏效果</h2><span class="head-icon"></span></header><main class="splash-preview-content"><p>这是其他用户打开 HelloTalk 时看到的效果</p><section class="recipient-splash" aria-label="开屏效果预览"><div class="recipient-status"><span>15:07</span><span>◒ ◒ ▭</span></div><div class="recipient-brand"><i></i>HelloTalk</div><i class="recipient-cover ${imageClass}"></i><div class="recipient-copy"><strong>Hi，很高兴认识你</strong><span>${copies[task.copy || 0]}</span></div><button class="recipient-action">打个招呼</button></section>${saveAction}${detailAction}${state.previewSaved ? '<p class="preview-save-result" role="status">图片已保存</p>' : ''}<p class="splash-preview-note">开屏文案将按对方的界面语言展示</p></main></section>`;
+}
+
+function renderPlacementDetail() {
+  const record = state.placementDetail;
+  if (!record) return renderMain();
+  const imageClass = record.photoSource === 'album' ? `is-album style-${record.style}` : 'is-avatar';
+  const isRandom = record.type === 'random';
+  const metrics = isRandom
+    ? `<div class="placement-detail-metrics"><span><small>已展示人数</small><strong>${record.shown || 0}<i> 人</i></strong></span><span><small>访客数</small><strong>${record.visitors || 0}<i> 人</i></strong></span></div>`
+    : `<div class="placement-detail-metrics"><span><small>展示对象</small><strong>${record.name || '—'}</strong></span><span><small>投放状态</small><strong class="${record.status === '已展示' ? 'is-success' : 'is-muted'}">${record.status || '—'}</strong></span></div>`;
+  return `${statusBar()}<section class="screen subpage"><header class="page-head"><button class="head-icon" data-action="placement-detail-back" aria-label="返回">‹</button><h2>投放详情</h2><span class="head-icon"></span></header><main class="sub-content placement-detail-page"><article class="placement-detail-card"><header><span>${isRandom ? '全站推荐' : '仅指定语伴'}</span><em>${record.status}</em></header><button class="placement-detail-cover" data-action="open-detail-preview"><i class="history-cover-preview ${imageClass}"></i><span><small>开屏封面</small><strong>${record.photoSource === 'album' ? '照片' : '头像'} · ${styleNames[record.style] || styleNames[0]}</strong></span><i class="chevron">›</i></button>${metrics}</article></main></section>`;
+}
+
+function renderPartnerInfo() {
+  const partner = state.partnerInfo;
+  if (!partner) return renderMain();
+  const online = partner.active !== false;
+  return `${statusBar()}<section class="screen subpage"><header class="page-head"><button class="head-icon" data-action="partner-info-back" aria-label="返回">‹</button><h2>语伴信息</h2><span class="head-icon"></span></header><main class="sub-content partner-info-page"><article class="partner-info-card"><span class="avatar ${partner.className || 'mia'}">${partner.initial || partner.name?.[0] || 'M'}</span><div><strong>${partner.name || '—'}</strong><small>互相关注语伴</small><em class="${online ? 'is-online' : 'is-offline'}">${online ? '当前在线' : '超过 3 天未登录'}</em></div></article><p>该语伴将在打开 App 时看到你的开屏封面。</p></main></section>`;
 }
 
 function renderRecords() {
@@ -279,8 +305,8 @@ function renderRecords() {
 function renderHistorySheet() {
   const coverConfig = (record, index) => `<button class="history-cover-config" data-action="open-preview" data-preview-source="record" data-preview-index="${index}"><i class="history-cover-preview ${record.photoSource === 'album' ? `is-album style-${record.style}` : 'is-avatar'}"></i><span><small>开屏封面</small><strong>${record.photoSource === 'album' ? '照片' : '头像'} · ${styleNames[record.style]}</strong></span><i class="chevron">›</i></button>`;
   const recordCard = (record, index) => record.type === 'random'
-    ? `<article class="history-card history-random"><header><time>${record.date}</time><span class="history-mode">随机推荐</span><em>${record.status}</em></header>${coverConfig(record, index)}<div class="history-metrics"><button class="history-audience-metric" data-action="open-audience" data-audience-tab="shown" data-audience-source="record" data-audience-index="${index}" aria-label="查看 ${record.shown} 位已展示用户"><span>已展示人数 <i>›</i></span><strong>${record.shown}</strong><small>人</small></button><button class="history-audience-metric" data-action="open-audience" data-audience-tab="visitors" data-audience-source="record" data-audience-index="${index}" aria-label="查看 ${record.visitors} 位看过封面的用户"><span>访客数 <i>›</i></span><strong>${record.visitors}</strong><small>人</small></button></div><footer><button class="history-copy" data-action="copy-record">复制本次条件</button><button class="history-repeat" data-action="repeat-random">再次推荐</button></footer></article>`
-    : `<article class="history-card history-designated"><header><time>${record.date}</time><span class="history-mode">指定语伴</span><em class="${record.status === '已展示' ? 'is-success' : 'is-muted'}">${record.status}</em></header>${coverConfig(record, index)}<div class="history-partner"><span class="avatar ${record.className}">${record.initial}</span><div><span>展示对象</span><strong>${record.name}</strong></div><i></i><div><span>投放状态</span><strong>${record.status}</strong></div></div><p>${record.detail}</p><footer><button class="history-copy" data-action="copy-record">复制本次条件</button><button class="history-repeat" data-action="repeat-designated" data-name="${record.name}" data-initial="${record.initial}" data-class="${record.className}">再次推荐</button></footer></article>`;
+    ? `<article class="history-card history-random" data-action="open-preview" data-preview-source="record" data-preview-index="${index}" role="button" tabindex="0"><header><time>${record.date}</time><span class="history-mode">随机推荐</span><em>${record.status}</em></header>${coverConfig(record, index)}<div class="history-metrics"><button class="history-audience-metric" data-action="open-audience" data-audience-tab="shown" data-audience-source="record" data-audience-index="${index}" aria-label="查看 ${record.shown} 位已展示用户"><span>已展示人数 <i>›</i></span><strong>${record.shown}</strong><small>人</small></button><button class="history-audience-metric" data-action="open-audience" data-audience-tab="visitors" data-audience-source="record" data-audience-index="${index}" aria-label="查看 ${record.visitors} 位看过封面的用户"><span>访客数 <i>›</i></span><strong>${record.visitors}</strong><small>人</small></button></div><footer><button class="history-copy" data-action="copy-record">复制本次条件</button><button class="history-repeat" data-action="repeat-random">再次推荐</button></footer></article>`
+    : `<article class="history-card history-designated" data-action="open-preview" data-preview-source="record" data-preview-index="${index}" role="button" tabindex="0"><header><time>${record.date}</time><span class="history-mode">指定语伴</span><em class="${record.status === '已展示' ? 'is-success' : 'is-muted'}">${record.status}</em></header>${coverConfig(record, index)}<div class="history-partner"><span class="avatar ${record.className}">${record.initial}</span><div><span>展示对象</span><strong>${record.name}</strong></div><i></i><div><span>投放状态</span><strong>${record.status}</strong></div></div><p>${record.detail}</p><footer><button class="history-copy" data-action="copy-record">复制本次条件</button><button class="history-repeat" data-action="repeat-designated" data-name="${record.name}" data-initial="${record.initial}" data-class="${record.className}">再次推荐</button></footer></article>`;
   return `<div class="overlay history-overlay"><section class="history-sheet${state.overlayEntered ? '' : ' is-entering'}" role="dialog" aria-modal="true" aria-labelledby="history-sheet-title"><i class="sheet-handle"></i><header class="history-sheet-head"><button data-action="overlay-close" aria-label="关闭">×</button><h2 id="history-sheet-title">投放记录</h2><span></span></header><main class="history-list" data-rule-target="records">${anchor('records', '7')}${anchor('records', '8')}${state.records.map(recordCard).join('')}</main></section></div>`;
 }
 
@@ -288,7 +314,7 @@ function renderActiveTasksSheet() {
   const taskCard = (task, index) => {
     const copy = taskCopy(task);
     const imageClass = task.photoSource === 'album' ? `is-album style-${task.style}` : 'is-avatar';
-    if (task.type !== 'random') return `<button class="active-task-card" data-action="open-preview" data-preview-source="task" data-preview-index="${index}"><i class="history-cover-preview ${imageClass}"></i><span><strong>指定给 ${task.name}</strong><small>${copy.detail}</small></span><em>${copy.title}</em><i class="chevron">›</i></button>`;
+    if (task.type !== 'random') return `<article class="active-task-card active-designated-card"><button class="active-task-preview" data-action="open-preview" data-preview-source="task" data-preview-index="${index}" aria-label="预览 ${task.name} 的开屏效果"><i class="history-cover-preview ${imageClass}"></i><span><strong>开屏预览</strong><small>${copy.detail}</small></span><em>预览</em><i class="chevron">›</i></button><button class="active-partner-info" data-action="open-partner-info" data-name="${task.name}" data-initial="${task.name?.[0] || ''}" data-class="${task.name === 'Mia' ? 'mia' : 'noah'}" data-active="true"><span><small>展示对象</small><strong>${task.name}</strong></span><em>${copy.title}</em><i class="chevron">›</i></button></article>`;
     return `<article class="active-task-card active-random-card"><button class="active-task-preview" data-action="open-preview" data-preview-source="task" data-preview-index="${index}" aria-label="预览随机推荐开屏效果"><i class="history-cover-preview ${imageClass}"></i><span><strong>随机推荐</strong><small>正在向匹配用户推荐</small></span><em>${copy.title}</em><i class="chevron">›</i></button><div class="active-live-metrics"><button data-action="open-audience" data-audience-tab="shown" data-audience-source="task" data-audience-index="${index}" aria-label="查看 ${task.shown} 位已展示用户"><small>已展示人数 <i>›</i></small><strong>${task.shown}<i> / ${task.total} 人</i></strong></button><button data-action="open-audience" data-audience-tab="visitors" data-audience-source="task" data-audience-index="${index}" aria-label="查看 ${task.visitors} 位看过封面的用户"><small>访客数 <i>›</i></small><strong>${task.visitors}<i> 人</i></strong></button></div></article>`;
   };
   return `<div class="overlay history-overlay"><section class="active-tasks-sheet${state.overlayEntered ? '' : ' is-entering'}" role="dialog" aria-modal="true" aria-labelledby="active-tasks-title"><i class="sheet-handle"></i><header class="history-sheet-head"><button data-action="overlay-close" aria-label="关闭">×</button><h2 id="active-tasks-title">投放详情</h2><span></span></header><main class="active-tasks-list"><p>${state.activeTasks.length > 1 ? `进行中（${state.activeTasks.length}）` : '进行中'}</p>${state.activeTasks.map(taskCard).join('')}</main></section></div>`;
@@ -434,6 +460,32 @@ function productRows(type) {
   </tr>`).join('');
 }
 
+function productDialogValues(root = backendConsole) {
+  const value = (id) => root?.querySelector(`#${id}`)?.value.trim() || '';
+  const prices = ['adminProductDisplayPrice', 'adminProductFirstPrice', 'adminProductActualPrice', 'adminProductVipPrice'];
+  const values = Object.fromEntries(prices.map(id => [id, value(id)]));
+  const exposure = value('adminProductExposureCount');
+  const dialogType = state.adminDialogType || state.backendType;
+  const positive = (input) => input !== '' && Number.isFinite(Number(input)) && Number(input) > 0;
+  const exposureValid = dialogType === 'random'
+    ? positive(exposure) && Number(exposure) >= 500 && Number(exposure) % 500 === 0
+    : Number(exposure) === 1;
+  return {
+    name: value('adminProductName'),
+    displayPrice: values.adminProductDisplayPrice,
+    firstPrice: values.adminProductFirstPrice,
+    actualPrice: values.adminProductActualPrice,
+    vipPrice: values.adminProductVipPrice,
+    exposure,
+    isValid: Boolean(value('adminProductName')) && Object.values(values).every(positive) && exposureValid
+  };
+}
+
+function syncProductDialogValidity() {
+  const button = backendConsole?.querySelector('[data-backend-action="save-product"]');
+  if (button) button.disabled = !productDialogValues().isValid;
+}
+
 function renderProductPage(type) {
   return `<div class="admin-page-head"><div><h2>商品配置</h2><p>配置开屏推荐商品与价格，保存后将同步给客户端。</p></div><button class="admin-primary" data-backend-action="new-product">＋ 新建商品</button></div>
     <section class="admin-filter"><label>商品类型<select data-backend-action="type"><option value="random" ${type === 'random' ? 'selected' : ''}>随机推荐</option><option value="designated" ${type === 'designated' ? 'selected' : ''}>指定语伴</option></select></label><label>商品状态<select><option>全部状态</option><option>启用</option><option>停用</option></select></label><button class="admin-search">查询</button><button class="admin-reset">重置</button></section>
@@ -445,13 +497,28 @@ function renderPlacementPage(type) {
   const groups = productGroups[type];
   const defaultId = defaultGroupIds[type];
   const current = placementConfig[type];
-  return `<div class="admin-page-head"><div><h2>商品分组</h2><p>一个商品组可包含多个商品，客户端按默认商品组外显。</p></div><div class="admin-page-actions"><span class="admin-count">${typeLabel(type)} · 已外显 ${visibleProducts(type).length} / ${max}</span><button class="admin-primary" data-backend-action="new-placement">＋ 新增</button></div></div>
+  return `<div class="admin-page-head"><div><h2>商品分组</h2><p>一个商品组可包含多个商品，客户端按默认商品组外显。</p></div><div class="admin-page-actions"><span class="admin-count">${typeLabel(type)} · 已外显 ${visibleProducts(type).length} / ${max}</span><button class="admin-import" data-backend-action="open-import-dialog">剪贴板导入</button><button class="admin-primary" data-backend-action="new-placement">＋ 新增</button></div></div>
     <section class="admin-filter placement-filter"><label>ID<input placeholder="请输入 ID" /></label><label>商品名称<input placeholder="请输入商品名称" /></label><label>分组<select><option>请选择</option>${groups.map(group => `<option>${group.name}</option>`).join('')}</select></label><label>商品分类<select><option>请选择</option><option>开屏推荐</option><option>付费曝光</option></select></label><button class="admin-reset">重置</button><button class="admin-search">查询</button></section>
     <section class="admin-card"><div class="admin-card-head"><strong>商品组列表</strong><span>共 ${groups.length} 条数据</span></div><div class="admin-table-wrap"><table class="admin-table placement-table group-table"><thead><tr><th>商品组 ID</th><th>商品分类</th><th>商品组名称</th><th>商品组描述</th><th>所含商品</th><th>操作</th></tr></thead><tbody>${groups.map(group => {
       const names = group.productIds.map(id => productById(type, id)?.name).filter(Boolean).join('\n');
       const isDefault = group.id === defaultId;
       return `<tr><td>${group.id}</td><td>${group.category}</td><td><strong>${group.name}</strong></td><td>${group.description}</td><td><span class="group-product-list">${names || '—'}</span></td><td><button class="table-link" data-backend-action="edit-placement" data-group-id="${group.id}">编辑</button><button class="table-link" data-backend-action="copy-placement" data-group-id="${group.id}">复制</button><button class="table-link" data-backend-action="set-default-group" data-group-id="${group.id}" ${isDefault ? 'disabled' : ''}>${isDefault ? '已设为默认商品组' : '设为默认商品组'}</button></td></tr>`;
     }).join('')}</tbody></table></div></section>`;
+}
+
+function parsePlacementImport(text, type) {
+  const [name = '', description = '', ids = ''] = text.split('|').map(item => item.trim());
+  const max = type === 'random' ? 4 : 1;
+  const requestedIds = [...new Set(ids.split(/[，,\s]+/).filter(Boolean))];
+  const productIds = requestedIds.filter(id => productCatalog[type].some(product => product.id === id && product.enabled));
+  const isValid = Boolean(name && description && productIds.length && productIds.length <= max && productIds.length === requestedIds.length);
+  return { name, description, productIds, isValid };
+}
+
+function renderPlacementImportDialog() {
+  if (!state.adminImportDialog) return '';
+  const parsed = parsePlacementImport(state.adminImportText, state.backendType);
+  return `<div class="admin-dialog-backdrop"><section class="admin-dialog admin-import-dialog" role="dialog" aria-modal="true" aria-labelledby="import-dialog-title"><header><h3 id="import-dialog-title">剪贴板导入商品组</h3><button data-backend-action="close-import-dialog" aria-label="关闭">×</button></header><main><p>按“商品组名称 | 商品组描述 | 商品 ID，商品 ID”粘贴；随机推荐最多 4 个商品，指定语伴最多 1 个商品。</p><textarea id="adminImportText" placeholder="例如：随机推荐默认商品组 | 用于开屏推荐 | open-r-500, open-r-1000">${state.adminImportText}</textarea><small class="admin-import-status">${state.adminImportText && !parsed.isValid ? '请补全名称、描述和启用商品 ID；商品数量不可超过该投放类型上限。' : '导入后会新增一个商品组，不会替换当前默认商品组。'}</small></main><footer><button class="admin-cancel" data-backend-action="read-clipboard">读取剪贴板</button><button class="admin-cancel" data-backend-action="close-import-dialog">取消</button><button class="admin-primary" data-backend-action="save-import-group" ${parsed.isValid ? '' : 'disabled'}>确认</button></footer></section></div>`;
 }
 
 function renderPlacementDialog() {
@@ -470,14 +537,26 @@ function renderPlacementDialog() {
   return `<div class="admin-dialog-backdrop"><section class="admin-dialog admin-placement-dialog" role="dialog" aria-modal="true" aria-labelledby="placement-dialog-title"><header><h3 id="placement-dialog-title">${dialog.mode === 'edit' ? '编辑商品组' : '添加商品组'}</h3><button data-backend-action="close-placement-dialog" aria-label="关闭">×</button></header><section class="placement-group-fields"><label><b>*</b>商品组名称<input id="adminGroupName" required value="${groupName}" placeholder="请输入商品组名称" /></label><label><b>*</b>商品组描述<input id="adminGroupDescription" required value="${groupDescription}" placeholder="请输入商品组描述" /></label><label>商品分类<select id="adminGroupCategory"><option ${groupCategory === '开屏推荐' ? 'selected' : ''}>开屏推荐</option><option ${groupCategory === '付费曝光' ? 'selected' : ''}>付费曝光</option></select></label></section><section class="placement-dialog-filter"><label>ID<input placeholder="请输入 ID" /></label><label>商品名称<input placeholder="请输入商品名称" /></label><label>状态<select><option>请选择</option><option>启用</option><option>关闭</option></select></label><label>曝光次数<input placeholder="请输入曝光次数" /></label><button class="admin-reset">重置</button><button class="admin-search">查询</button></section><main class="placement-dialog-body"><div class="placement-dialog-meta"><strong>选择商品</strong><span>已选择 ${selected.size} / ${max}</span></div><div class="admin-table-wrap"><table class="admin-table placement-pick-table"><thead><tr><th>选择</th><th>Product ID</th><th>商品名称</th><th>状态</th><th>投放类型</th><th>曝光次数</th></tr></thead><tbody>${productCatalog[type].map(product => `<tr><td><input type="checkbox" data-backend-action="placement-pick" data-product-id="${product.id}" ${selected.has(product.id) ? 'checked' : ''} ${!product.enabled || (!selected.has(product.id) && selected.size >= max) ? 'disabled' : ''} /></td><td>${product.id}</td><td>${product.name}</td><td><span class="record-status ${product.enabled ? '' : 'is-running'}">${product.enabled ? '启用' : '关闭'}</span></td><td>${typeLabel(type)}</td><td>${product.exposureCount || product.recommendCount} 次</td></tr>`).join('')}</tbody></table></div></main><footer><button class="admin-cancel" data-backend-action="close-placement-dialog">取消</button><button class="admin-primary" data-backend-action="save-placement-group" data-group-id="${dialog.groupId || ''}" ${canSave ? '' : 'disabled'}>确认</button></footer></section></div>`;
 }
 
+function filteredConsoleRecords() {
+  const active = state.activeTasks.map((task, index) => ({ ...task, id: task.id || `active-${index}`, status: '投放中', created: '刚刚', createdDate: '2026-09-10', source: 'task', sourceIndex: index }));
+  const history = state.records.map((record, index) => ({ ...record, id: `record-${index}`, productName: record.type === 'random' ? `${record.shown} 次推荐` : '指定 1 位语伴', created: record.date, createdDate: record.createdDate || `2026-08-${record.date.slice(-2)}`, source: 'record', sourceIndex: index }));
+  const filter = state.adminRecordFilters;
+  return [...active, ...history].filter(record => {
+    if (filter.type !== 'all' && record.type !== filter.type) return false;
+    if (filter.status !== 'all' && record.status !== filter.status) return false;
+    if (filter.date === '7d') return record.createdDate >= '2026-09-03';
+    if (filter.date === '30d') return record.createdDate >= '2026-08-11';
+    return true;
+  });
+}
+
 function consoleRecordRows() {
-  const active = state.activeTasks.map((task, index) => ({ ...task, id: task.id || `active-${index}`, status: '投放中', created: '刚刚' }));
-  const history = state.records.map((record, index) => ({ ...record, id: `record-${index}`, productName: record.type === 'random' ? `${record.shown} 次推荐` : '指定 1 位语伴', created: record.date }));
-  return [...active, ...history].map(record => `<tr><td>${record.id}</td><td>C*${record.type === 'random' ? 'm' : 'z'}</td><td>${typeLabel(record.type)}</td><td>${record.productName || '开屏推荐商品'}</td><td>${record.photoSource === 'album' ? '照片' : '头像'} · ${styleNames[record.style] || styleNames[0]}</td><td><span class="record-status ${record.status === '投放中' ? 'is-running' : ''}">${record.status}</span></td><td>${record.type === 'random' ? `${record.shown || 0} / ${record.total || record.shown || 0}` : record.name || '—'}</td><td>${record.type === 'random' ? `${record.visitors ?? '—'} 人` : '—'}</td><td>${record.created}</td></tr>`).join('');
+  return filteredConsoleRecords().map(record => `<tr><td>${record.id}</td><td>C*${record.type === 'random' ? 'm' : 'z'}</td><td>${typeLabel(record.type)}</td><td>${record.productName || '开屏推荐商品'}</td><td>${record.photoSource === 'album' ? '照片' : '头像'} · ${styleNames[record.style] || styleNames[0]}</td><td><span class="record-status ${record.status === '投放中' ? 'is-running' : ''}">${record.status}</span></td><td>${record.type === 'random' ? `${record.shown || 0} / ${record.total || record.shown || 0}` : record.name || '—'}</td><td>${record.type === 'random' ? `${record.visitors ?? '—'} 人` : '—'}</td><td>${record.created}</td><td><button class="table-link" data-backend-action="preview-record" data-record-source="${record.source}" data-record-index="${record.sourceIndex}">预览</button></td></tr>`).join('') || '<tr><td colspan="10" class="admin-empty">暂无符合条件的投放记录</td></tr>';
 }
 
 function renderRecordsPage() {
-  return `<div class="admin-page-head"><div><h2>投放记录</h2><p>查看随机推荐与指定语伴的投放结果。</p></div></div><section class="admin-filter"><label>投放类型<select><option>全部类型</option><option>随机推荐</option><option>指定语伴</option></select></label><label>投放状态<select><option>全部状态</option><option>投放中</option><option>投放完成</option></select></label><label>创建时间<input value="2026-08-01 至 2026-08-31" readonly /></label><button class="admin-search">查询</button><button class="admin-reset">重置</button></section><section class="admin-card"><div class="admin-card-head"><strong>投放记录</strong><span>进行中与已结束记录</span></div><div class="admin-table-wrap"><table class="admin-table records-table"><thead><tr><th>记录 ID</th><th>用户</th><th>投放类型</th><th>商品快照</th><th>开屏封面</th><th>状态</th><th>投放进度 / 对象</th><th>访客数</th><th>创建时间</th></tr></thead><tbody>${consoleRecordRows()}</tbody></table></div></section>`;
+  const filter = state.adminRecordFilters;
+  return `<div class="admin-page-head"><div><h2>投放记录</h2><p>查看随机推荐与指定语伴的投放结果。</p></div></div><section class="admin-filter"><label>投放类型<select data-backend-action="record-filter" data-record-filter="type"><option value="all" ${filter.type === 'all' ? 'selected' : ''}>全部类型</option><option value="random" ${filter.type === 'random' ? 'selected' : ''}>随机推荐</option><option value="designated" ${filter.type === 'designated' ? 'selected' : ''}>指定语伴</option></select></label><label>投放状态<select data-backend-action="record-filter" data-record-filter="status"><option value="all" ${filter.status === 'all' ? 'selected' : ''}>全部状态</option><option value="投放中" ${filter.status === '投放中' ? 'selected' : ''}>投放中</option><option value="投放完成" ${filter.status === '投放完成' ? 'selected' : ''}>投放完成</option><option value="已展示" ${filter.status === '已展示' ? 'selected' : ''}>已展示</option><option value="未展示" ${filter.status === '未展示' ? 'selected' : ''}>未展示</option></select></label><label>创建时间<select data-backend-action="record-filter" data-record-filter="date"><option value="all" ${filter.date === 'all' ? 'selected' : ''}>全部时间</option><option value="7d" ${filter.date === '7d' ? 'selected' : ''}>近 7 天</option><option value="30d" ${filter.date === '30d' ? 'selected' : ''}>近 30 天</option></select></label><button class="admin-search" data-backend-action="search-records">查询</button><button class="admin-reset" data-backend-action="reset-records">重置</button></section><section class="admin-card"><div class="admin-card-head"><strong>投放记录</strong><span>共 ${filteredConsoleRecords().length} 条数据</span></div><div class="admin-table-wrap"><table class="admin-table records-table"><thead><tr><th>记录 ID</th><th>用户</th><th>投放类型</th><th>商品快照</th><th>开屏封面</th><th>状态</th><th>投放进度 / 对象</th><th>访客数</th><th>创建时间</th><th>操作</th></tr></thead><tbody>${consoleRecordRows()}</tbody></table></div></section>`;
 }
 
 function renderProductDialog() {
@@ -489,8 +568,12 @@ function renderProductDialog() {
   const value = (key, fallback = '') => product[key] ?? fallback;
   const field = (label, id, fieldValue, unit, note = '', required = false) => `<div class="admin-config-field"><label>${required ? '<b>*</b>' : ''}${label}</label><div><div class="admin-unit-input"><input id="${id}" type="number" min="1" value="${fieldValue}" /><span>${unit}</span></div>${note ? `<p>${note}</p>` : ''}</div></div>`;
   const exposureNote = dialogType === 'random' ? '范围为 500 至 10000，且必须是 500 的倍数。' : '指定语伴商品固定曝光 1 次。';
-  const settings = `<div class="admin-config-form"><div class="admin-config-field admin-config-name"><label><b>*</b>商品名称</label><div><input id="adminProductName" required value="${value('name')}" placeholder="请输入商品名称" /></div></div><div class="admin-config-field"><label>投放类型</label><div><select id="adminProductType" data-backend-action="dialog-type" ${mode === 'edit' ? 'disabled' : ''}><option value="random" ${dialogType === 'random' ? 'selected' : ''}>随机推荐</option><option value="designated" ${dialogType === 'designated' ? 'selected' : ''}>指定语伴</option></select><p>${mode === 'edit' ? '编辑时不可修改商品所属投放类型。' : '请选择该商品用于随机推荐还是指定语伴。'}</p></div></div><div class="admin-config-status"><span>状态</span><label class="admin-status-switch"><input id="adminProductEnabled" type="checkbox" ${product.enabled ? 'checked' : ''} /><i>启用</i></label></div>${field('显示原价', 'adminProductDisplayPrice', value('displayPrice', value('listPrice', 1190)), 'coins', '客户端原价会展示划线价，和实际价格对比。')}${field('首次购买价格', 'adminProductFirstPrice', value('firstPrice', value('price', 990)), 'coins', '从未购买过的用户首次体验价，不区分 VIP 还是非 VIP。')}<div class="admin-config-field"><label>首次购买角标</label><div><select id="adminProductFirstBadge"><option>不展示</option><option>限时优惠</option><option>新人专享</option></select><p>占位符类型为商业化，不填写则显示客户端默认值。</p></div></div>${field('实际价格', 'adminProductActualPrice', value('actualPrice', value('price', 990)), 'coins', '享受过体验价后的固定实际价格。', true)}${field('VIP价格', 'adminProductVipPrice', value('vipPrice', value('price', 990)), 'coins', '配置后仅针对 VIP 用户生效。')}<div class="admin-config-field"><label>VIP价格角标</label><div><select id="adminProductVipBadge"><option>不展示</option><option>VIP专享</option><option>限时优惠</option></select><p>占位符类型为商业化，不填写则显示客户端默认值。</p></div></div><div class="admin-config-field"><label>VIP价格限时角标</label><div><select id="adminProductVipLimitBadge"><option>不展示</option><option>限时优惠</option><option>即将结束</option></select><p>占位符类型为商业化，不填写则显示客户端默认值。</p></div></div>${field('曝光次数', 'adminProductExposureCount', value('exposureCount', value('recommendCount', 500)), '次', exposureNote, true)}</div>`;
-  const canSave = Boolean(value('name').trim());
+  const settings = `<div class="admin-config-form"><div class="admin-config-field admin-config-name"><label><b>*</b>商品名称</label><div><input id="adminProductName" required value="${value('name')}" placeholder="请输入商品名称" /></div></div><div class="admin-config-field"><label><b>*</b>投放类型</label><div><select id="adminProductType" data-backend-action="dialog-type" ${mode === 'edit' ? 'disabled' : ''}><option value="random" ${dialogType === 'random' ? 'selected' : ''}>随机推荐</option><option value="designated" ${dialogType === 'designated' ? 'selected' : ''}>指定语伴</option></select><p>${mode === 'edit' ? '编辑时不可修改商品所属投放类型。' : '请选择该商品用于随机推荐还是指定语伴。'}</p></div></div><div class="admin-config-status"><span>状态</span><label class="admin-status-switch"><input id="adminProductEnabled" type="checkbox" ${product.enabled ? 'checked' : ''} /><i>启用</i></label></div>${field('显示原价', 'adminProductDisplayPrice', value('displayPrice', value('listPrice', 1190)), 'coins', '客户端原价会展示划线价，和实际价格对比。', true)}${field('首次购买价格', 'adminProductFirstPrice', value('firstPrice', value('price', 990)), 'coins', '从未购买过的用户首次体验价，不区分 VIP 还是非 VIP。', true)}<div class="admin-config-field"><label>首次购买角标</label><div><select id="adminProductFirstBadge"><option>不展示</option><option>限时优惠</option><option>新人专享</option></select><p>占位符类型为商业化，不填写则显示客户端默认值。</p></div></div>${field('实际价格', 'adminProductActualPrice', value('actualPrice', value('price', 990)), 'coins', '享受过体验价后的固定实际价格。', true)}${field('VIP价格', 'adminProductVipPrice', value('vipPrice', value('price', 990)), 'coins', '配置后仅针对 VIP 用户生效。', true)}<div class="admin-config-field"><label>VIP价格角标</label><div><select id="adminProductVipBadge"><option>不展示</option><option>VIP专享</option><option>限时优惠</option></select><p>占位符类型为商业化，不填写则显示客户端默认值。</p></div></div><div class="admin-config-field"><label>VIP价格限时角标</label><div><select id="adminProductVipLimitBadge"><option>不展示</option><option>限时优惠</option><option>即将结束</option></select><p>占位符类型为商业化，不填写则显示客户端默认值。</p></div></div>${field('曝光次数', 'adminProductExposureCount', value('exposureCount', value('recommendCount', 500)), '次', exposureNote, true)}</div>`;
+  const numericFields = ['displayPrice', 'firstPrice', 'actualPrice', 'vipPrice'];
+  const hasPrices = numericFields.every(key => Number(value(key, 0)) > 0);
+  const initialExposure = Number(value('exposureCount', dialogType === 'random' ? 500 : 1));
+  const exposureValid = dialogType === 'random' ? initialExposure >= 500 && initialExposure % 500 === 0 : initialExposure === 1;
+  const canSave = Boolean(value('name').trim()) && hasPrices && exposureValid;
   return `<div class="admin-dialog-backdrop"><section class="admin-dialog admin-config-dialog" role="dialog" aria-modal="true" aria-labelledby="admin-dialog-title"><header><h3 id="admin-dialog-title">${mode === 'edit' ? 'Edit' : 'Add'}</h3><button data-backend-action="close-dialog" aria-label="关闭">×</button></header><main>${settings}</main><footer><button class="admin-cancel" data-backend-action="close-dialog">取消</button><button class="admin-primary" data-backend-action="save-product" data-product-id="${productId || ''}" ${canSave ? '' : 'disabled'}>确认</button></footer></section></div>`;
 }
 
@@ -499,12 +582,14 @@ function renderBackendConsole() {
   const type = state.backendType;
   const page = state.adminPage;
   const content = page === 'products' ? renderProductPage(type) : page === 'placement' ? renderPlacementPage(type) : renderRecordsPage();
-  backendConsole.innerHTML = `<section class="admin-frame"><section class="admin-workspace admin-workspace-compact"><header class="admin-localbar"><strong>开屏推荐</strong><nav class="admin-tabs" aria-label="开屏推荐后台页签"><button class="${page === 'products' ? 'is-active' : ''}" data-backend-action="page" data-backend-page="products">商品配置</button><button class="${page === 'placement' ? 'is-active' : ''}" data-backend-action="page" data-backend-page="placement">商品分组</button><button class="${page === 'records' ? 'is-active' : ''}" data-backend-action="page" data-backend-page="records">投放记录</button></nav></header><main class="admin-content">${content}</main></section></section>${renderProductDialog()}${renderPlacementDialog()}`;
+  backendConsole.innerHTML = `<section class="admin-frame"><section class="admin-workspace admin-workspace-compact"><header class="admin-localbar"><strong>开屏推荐</strong><nav class="admin-tabs" aria-label="开屏推荐后台页签"><button class="${page === 'products' ? 'is-active' : ''}" data-backend-action="page" data-backend-page="products">商品配置</button><button class="${page === 'placement' ? 'is-active' : ''}" data-backend-action="page" data-backend-page="placement">商品分组</button><button class="${page === 'records' ? 'is-active' : ''}" data-backend-action="page" data-backend-page="records">投放记录</button></nav></header><main class="admin-content">${content}</main></section></section>${renderProductDialog()}${renderPlacementDialog()}${renderPlacementImportDialog()}`;
 }
 
 function render() {
   let html = '';
   if (state.view === 'friends') html = renderFriends();
+  else if (state.view === 'placement-detail') html = renderPlacementDetail();
+  else if (state.view === 'partner-info') html = renderPartnerInfo();
   else if (state.view === 'records') html = renderRecords();
   else if (state.view === 'splash-preview') html = renderSplashPreview();
   else html = renderMain();
@@ -638,6 +723,35 @@ app.addEventListener('click', (event) => {
     setView('splash-preview');
     return;
   }
+  if (action === 'open-placement-detail') {
+    state.placementDetail = state.previewItem;
+    setView('placement-detail');
+    return;
+  }
+  if (action === 'open-detail-preview') {
+    state.previewItem = state.placementDetail;
+    state.previewOrigin = 'record-detail';
+    state.previewSaved = false;
+    setView('splash-preview');
+    return;
+  }
+  if (action === 'placement-detail-back') {
+    state.placementDetail = null;
+    state.view = 'main';
+    showOverlay('records');
+    return;
+  }
+  if (action === 'open-partner-info') {
+    state.partnerInfo = { name: element.dataset.name, initial: element.dataset.initial, className: element.dataset.class, active: element.dataset.active !== 'false' };
+    setView('partner-info');
+    return;
+  }
+  if (action === 'partner-info-back') {
+    state.partnerInfo = null;
+    state.view = 'main';
+    showOverlay('active-tasks');
+    return;
+  }
   if (action === 'open-audience') {
     state.audienceOrigin = element.dataset.audienceSource === 'record' ? 'history' : 'active-tasks';
     state.audienceTask = state.audienceOrigin === 'history'
@@ -666,6 +780,7 @@ app.addEventListener('click', (event) => {
     state.previewSaved = false;
     state.view = 'main';
     if (origin === 'history') showOverlay('records');
+    else if (origin === 'record-detail') { state.view = 'placement-detail'; render(); }
     else if (origin === 'active-tasks') showOverlay('active-tasks');
     else render();
     return;
@@ -771,6 +886,28 @@ backendConsole?.addEventListener('click', (event) => {
   if (action === 'new-product') { state.adminDialog = { mode: 'create' }; state.adminDialogType = state.backendType; renderBackendConsole(); return; }
   if (action === 'close-dialog') { state.adminDialog = null; state.adminDialogType = null; renderBackendConsole(); return; }
   if (action === 'new-placement') { state.adminPlacementDialog = { mode: 'create' }; state.adminPlacementDraftIds = []; state.adminPlacementDraft = { name: '', description: '', category: '开屏推荐' }; renderBackendConsole(); return; }
+  if (action === 'open-import-dialog') { state.adminImportDialog = true; state.adminImportText = ''; renderBackendConsole(); return; }
+  if (action === 'close-import-dialog') { state.adminImportDialog = false; state.adminImportText = ''; renderBackendConsole(); return; }
+  if (action === 'read-clipboard') {
+    if (!navigator.clipboard?.readText) return;
+    navigator.clipboard.readText().then(text => {
+      state.adminImportText = text;
+      renderBackendConsole();
+    }).catch(() => {
+      const status = backendConsole.querySelector('.admin-import-status');
+      if (status) status.textContent = '无法读取剪贴板，请手动粘贴内容。';
+    });
+    return;
+  }
+  if (action === 'save-import-group') {
+    const parsed = parsePlacementImport(state.adminImportText, type);
+    if (!parsed.isValid) return;
+    productGroups[type].push({ id: `group-${type === 'random' ? 'r' : 'd'}-${Date.now().toString().slice(-4)}`, category: '开屏推荐', ...parsed });
+    state.adminImportDialog = false;
+    state.adminImportText = '';
+    renderBackendConsole();
+    return;
+  }
   if (action === 'edit-placement') { const group = productGroups[type].find(item => item.id === control.dataset.groupId); state.adminPlacementDialog = { mode: 'edit', groupId: control.dataset.groupId }; state.adminPlacementDraftIds = [...(group?.productIds || [])]; state.adminPlacementDraft = { name: group?.name || '', description: group?.description || '', category: group?.category || '开屏推荐' }; renderBackendConsole(); return; }
   if (action === 'copy-placement') { const group = productGroups[type].find(item => item.id === control.dataset.groupId); if (group) { const copy = { ...group, id: `group-${type === 'random' ? 'r' : 'd'}-${Date.now().toString().slice(-4)}`, name: `${group.name}（副本）`, productIds: [...group.productIds] }; productGroups[type].push(copy); } renderBackendConsole(); return; }
   if (action === 'set-default-group') { const group = productGroups[type].find(item => item.id === control.dataset.groupId); if (group) { defaultGroupIds[type] = group.id; placementConfig[type].productIds = [...group.productIds]; placementConfig[type].defaultId = group.productIds[0] || null; normalizePlacement(type); } render(); return; }
@@ -804,14 +941,15 @@ backendConsole?.addEventListener('click', (event) => {
     return;
   }
   if (action === 'save-product') {
-    const name = backendConsole.querySelector('#adminProductName')?.value.trim();
-    const displayPrice = Math.max(1, Number(backendConsole.querySelector('#adminProductDisplayPrice')?.value) || 1);
-    const firstPrice = Math.max(1, Number(backendConsole.querySelector('#adminProductFirstPrice')?.value) || 1);
-    const actualPrice = Math.max(1, Number(backendConsole.querySelector('#adminProductActualPrice')?.value) || 1);
-    const vipPrice = Math.max(1, Number(backendConsole.querySelector('#adminProductVipPrice')?.value) || actualPrice);
-    const exposureCount = Math.max(1, Number(backendConsole.querySelector('#adminProductExposureCount')?.value) || 1);
+    const values = productDialogValues();
+    if (!values.isValid) { syncProductDialogValidity(); return; }
+    const name = values.name;
+    const displayPrice = Number(values.displayPrice);
+    const firstPrice = Number(values.firstPrice);
+    const actualPrice = Number(values.actualPrice);
+    const vipPrice = Number(values.vipPrice);
+    const exposureCount = Number(values.exposure);
     const enabled = backendConsole.querySelector('#adminProductEnabled')?.checked ?? true;
-    if (!name) return;
     const dialogType = state.adminDialogType || type;
     let product = control.dataset.productId ? productById(dialogType, control.dataset.productId) : null;
     if (!product) {
@@ -825,7 +963,19 @@ backendConsole?.addEventListener('click', (event) => {
     state.adminDialog = null;
     state.adminDialogType = null;
     render();
+    return;
   }
+  if (action === 'preview-record') {
+    const source = control.dataset.recordSource;
+    const index = Number(control.dataset.recordIndex);
+    state.previewItem = source === 'task' ? state.activeTasks[index] : state.records[index];
+    state.previewOrigin = 'backend-record';
+    state.previewSaved = false;
+    setView('splash-preview');
+    return;
+  }
+  if (action === 'search-records') { renderBackendConsole(); return; }
+  if (action === 'reset-records') { state.adminRecordFilters = { type: 'all', status: 'all', date: 'all' }; renderBackendConsole(); return; }
 });
 
 backendConsole?.addEventListener('change', (event) => {
@@ -843,6 +993,10 @@ backendConsole?.addEventListener('change', (event) => {
   if (action === 'dialog-type' && state.adminDialog?.mode === 'create') {
     state.adminDialogType = control.value;
     renderBackendConsole();
+    return;
+  }
+  if (action === 'record-filter') {
+    state.adminRecordFilters = { ...state.adminRecordFilters, [control.dataset.recordFilter]: control.value };
     return;
   }
   if (action === 'placement-pick') {
@@ -884,7 +1038,7 @@ backendConsole?.addEventListener('change', (event) => {
 });
 
 backendConsole?.addEventListener('input', (event) => {
-  if (!state.adminDialog && !state.adminPlacementDialog) return;
+  if (!state.adminDialog && !state.adminPlacementDialog && !state.adminImportDialog) return;
   const target = event.target;
   if (state.adminPlacementDialog && (target.id === 'adminGroupName' || target.id === 'adminGroupDescription')) {
     const name = backendConsole.querySelector('#adminGroupName')?.value.trim() || '';
@@ -897,9 +1051,11 @@ backendConsole?.addEventListener('input', (event) => {
     const button = backendConsole.querySelector('[data-backend-action="save-placement-group"]');
     if (button) button.disabled = !(name && description && (state.adminPlacementDraftIds || []).length);
   }
-  if (state.adminDialog && target.id === 'adminProductName') {
-    const button = backendConsole.querySelector('[data-backend-action="save-product"]');
-    if (button) button.disabled = !target.value.trim();
+  if (state.adminDialog && ['adminProductName', 'adminProductDisplayPrice', 'adminProductFirstPrice', 'adminProductActualPrice', 'adminProductVipPrice', 'adminProductExposureCount'].includes(target.id)) syncProductDialogValidity();
+  if (state.adminImportDialog && target.id === 'adminImportText') {
+    state.adminImportText = target.value;
+    const button = backendConsole.querySelector('[data-backend-action="save-import-group"]');
+    if (button) button.disabled = !parsePlacementImport(state.adminImportText, state.backendType).isValid;
   }
 });
 

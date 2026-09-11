@@ -61,11 +61,11 @@ const rules = [
   { id: 'FR-002/1', text: '顶部仅外显最新未结束任务。', target: 'banner', view: 'main' },
   { id: 'FR-003/1', text: '照片来源支持头像、拍照、相册。', target: 'cover', view: 'main' },
   { id: 'FR-003/2', text: '选择商品模版时可查看模版预览。', target: 'template', view: 'main', overlay: 'template' },
-  { id: 'FR-004/3', text: '指定语伴对所有用户开放，可作为随机推荐的增值投放或单独投放。', target: 'designated', view: 'main' },
+  { id: 'FR-004/3', text: '指定语伴对所有用户开放，最多可选 10 位；可作为全站推荐的增值投放或单独投放，且不占用全站推荐人数。', target: 'designated', view: 'main' },
   { id: 'FR-005/1', text: '随机推荐提供 500 / 1000 / 2000 / 3000 四档。', target: 'packages', view: 'main' },
   { id: 'FR-005/4', text: '立即推荐是唯一提交动作。', target: 'purchase', view: 'main' },
-  { id: 'FR-007/3', text: '指定语伴记录显示对象与投放状态。', target: 'records', view: 'main', overlay: 'records' },
-  { id: 'FR-008/3', text: '随机记录展示已展示人数和去重访客数。', target: 'records', view: 'main', overlay: 'records' }
+  { id: 'FR-007/3', text: '指定语伴记录按一次投放汇总多位对象，并展示每位语伴的投放状态。', target: 'records', view: 'main', overlay: 'records' },
+  { id: 'FR-008/3', text: '全站推荐记录展示已展示人数和去重访客数；若同时指定语伴，附带指定结果摘要。', target: 'records', view: 'main', overlay: 'records' }
 ];
 
 const state = {
@@ -105,6 +105,8 @@ const state = {
   audienceTab: 'shown',
   placementDetail: null,
   partnerInfo: null,
+  partnerStatusItems: [],
+  partnerStatusOrigin: null,
   adminRecordFilters: { type: 'all', status: 'all', date: 'all' },
   adminImportDialog: false,
   adminImportText: '',
@@ -164,8 +166,9 @@ function savingText(product) {
 }
 
 function taskCopy(task) {
-  if (task.type === 'random') return { title: '正在推荐', detail: `已展示 ${task.shown} / ${task.total} 人` };
-  return { title: '等待对方打开 App', detail: `${task.name} · 剩余 ${task.remaining} 小时` };
+  const stats = partnerStats(task);
+  if (task.type === 'random') return { title: '正在推荐', detail: `${stats.total ? `全站 + ${stats.total} 位语伴 · ` : ''}已展示 ${task.shown} / ${task.total} 人` };
+  return { title: '指定语伴投放中', detail: `${stats.total} 位语伴 · 剩余 ${task.remaining} 小时` };
 }
 
 const friendOptions = [
@@ -195,6 +198,35 @@ function selectedFriendSummary() {
   if (!state.selectedFriends.length) return '选择指定语伴（可选）';
   if (state.selectedFriends.length === 1) return `已选择 ${state.selectedFriends[0].name}`;
   return `已选择 ${state.selectedFriends.length} 位语伴`;
+}
+
+function partnersOf(item) {
+  if (Array.isArray(item?.partners)) return item.partners;
+  if (!item?.name) return [];
+  return [{ name: item.name, initial: item.initial || item.name[0], className: item.className || (item.name === 'Mia' ? 'mia' : 'noah'), status: item.status || '等待打开 App', remaining: item.remaining }];
+}
+
+function partnerStats(item) {
+  const partners = partnersOf(item);
+  const shown = partners.filter(partner => partner.status === '已展示').length;
+  const pending = partners.filter(partner => partner.status === '等待打开 App' || partner.status === '投放中').length;
+  const unshown = partners.filter(partner => partner.status === '未展示').length;
+  return { partners, total: partners.length, shown, pending, unshown };
+}
+
+function partnerStack(partners, limit = 3) {
+  if (!partners.length) return '';
+  const visible = partners.slice(0, limit);
+  return `<span class="partner-avatar-stack">${visible.map(partner => `<i class="avatar ${partner.className || ''}">${partner.initial || partner.name?.[0] || 'M'}</i>`).join('')}${partners.length > limit ? `<b>+${partners.length - limit}</b>` : ''}</span>`;
+}
+
+function partnerSummary(item, source, index, phase = 'ended') {
+  const stats = partnerStats(item);
+  if (!stats.total) return '';
+  const result = phase === 'active'
+    ? (stats.shown ? `已展示 ${stats.shown} 位${stats.pending ? ` · 等待 ${stats.pending} 位` : ''}` : `正在等待 ${stats.pending || stats.total} 位打开 App`)
+    : `已展示 ${stats.shown} 位${stats.unshown ? ` · 未展示 ${stats.unshown} 位` : ''}`;
+  return `<button class="partner-result-summary" data-action="open-partner-status" data-partner-source="${source}" data-partner-index="${index}" data-partner-phase="${phase}">${partnerStack(stats.partners)}<span><small>${source === 'task' && item.type === 'random' ? '同时指定语伴' : '指定语伴'}</small><strong>${stats.total} 位 · ${result}</strong></span><i class="chevron">›</i></button>`;
 }
 
 function renderMain() {
@@ -285,10 +317,11 @@ function renderPlacementDetail() {
   if (!record) return renderMain();
   const imageClass = record.photoSource === 'album' ? `is-album style-${record.style}` : 'is-avatar';
   const isRandom = record.type === 'random';
+  const partners = partnerStats(record);
   const metrics = isRandom
     ? `<div class="placement-detail-metrics"><span><small>已展示人数</small><strong>${record.shown || 0}<i> 人</i></strong></span><span><small>访客数</small><strong>${record.visitors || 0}<i> 人</i></strong></span></div>`
-    : `<div class="placement-detail-metrics"><span><small>展示对象</small><strong>${record.name || '—'}</strong></span><span><small>投放状态</small><strong class="${record.status === '已展示' ? 'is-success' : 'is-muted'}">${record.status || '—'}</strong></span></div>`;
-  return `${statusBar()}<section class="screen subpage"><header class="page-head"><button class="head-icon" data-action="placement-detail-back" aria-label="返回">‹</button><h2>投放详情</h2><span class="head-icon"></span></header><main class="sub-content placement-detail-page"><article class="placement-detail-card"><header><span>${isRandom ? '全站推荐' : '仅指定语伴'}</span><em>${record.status}</em></header><button class="placement-detail-cover" data-action="open-detail-preview"><i class="history-cover-preview ${imageClass}"></i><span><small>开屏封面</small><strong>${record.photoSource === 'album' ? '照片' : '头像'} · ${styleNames[record.style] || styleNames[0]}</strong></span><i class="chevron">›</i></button>${metrics}</article></main></section>`;
+    : `<div class="placement-detail-metrics"><span><small>指定人数</small><strong>${partners.total}<i> 位</i></strong></span><span><small>已展示</small><strong class="is-success">${partners.shown}<i> 位</i></strong></span></div>`;
+  return `${statusBar()}<section class="screen subpage"><header class="page-head"><button class="head-icon" data-action="placement-detail-back" aria-label="返回">‹</button><h2>投放详情</h2><span class="head-icon"></span></header><main class="sub-content placement-detail-page"><article class="placement-detail-card"><header><span>${isRandom ? '全站推荐' : '仅指定语伴'}</span><em>${record.status}</em></header><button class="placement-detail-cover" data-action="open-detail-preview"><i class="history-cover-preview ${imageClass}"></i><span><small>开屏封面</small><strong>${record.photoSource === 'album' ? '照片' : '头像'} · ${styleNames[record.style] || styleNames[0]}</strong></span><i class="chevron">›</i></button>${metrics}${partnerSummary(record, 'detail', 0, 'ended')}</article></main></section>`;
 }
 
 function renderPartnerInfo() {
@@ -305,8 +338,8 @@ function renderRecords() {
 function renderHistorySheet() {
   const coverConfig = (record, index) => `<button class="history-cover-config" data-action="open-preview" data-preview-source="record" data-preview-index="${index}"><i class="history-cover-preview ${record.photoSource === 'album' ? `is-album style-${record.style}` : 'is-avatar'}"></i><span><small>开屏封面</small><strong>${record.photoSource === 'album' ? '照片' : '头像'} · ${styleNames[record.style]}</strong></span><i class="chevron">›</i></button>`;
   const recordCard = (record, index) => record.type === 'random'
-    ? `<article class="history-card history-random" data-action="open-preview" data-preview-source="record" data-preview-index="${index}" role="button" tabindex="0"><header><time>${record.date}</time><span class="history-mode">随机推荐</span><em>${record.status}</em></header>${coverConfig(record, index)}<div class="history-metrics"><button class="history-audience-metric" data-action="open-audience" data-audience-tab="shown" data-audience-source="record" data-audience-index="${index}" aria-label="查看 ${record.shown} 位已展示用户"><span>已展示人数 <i>›</i></span><strong>${record.shown}</strong><small>人</small></button><button class="history-audience-metric" data-action="open-audience" data-audience-tab="visitors" data-audience-source="record" data-audience-index="${index}" aria-label="查看 ${record.visitors} 位看过封面的用户"><span>访客数 <i>›</i></span><strong>${record.visitors}</strong><small>人</small></button></div><footer><button class="history-copy" data-action="copy-record">复制本次条件</button><button class="history-repeat" data-action="repeat-random">再次推荐</button></footer></article>`
-    : `<article class="history-card history-designated" data-action="open-preview" data-preview-source="record" data-preview-index="${index}" role="button" tabindex="0"><header><time>${record.date}</time><span class="history-mode">指定语伴</span><em class="${record.status === '已展示' ? 'is-success' : 'is-muted'}">${record.status}</em></header>${coverConfig(record, index)}<div class="history-partner"><span class="avatar ${record.className}">${record.initial}</span><div><span>展示对象</span><strong>${record.name}</strong></div><i></i><div><span>投放状态</span><strong>${record.status}</strong></div></div><p>${record.detail}</p><footer><button class="history-copy" data-action="copy-record">复制本次条件</button><button class="history-repeat" data-action="repeat-designated" data-name="${record.name}" data-initial="${record.initial}" data-class="${record.className}">再次推荐</button></footer></article>`;
+    ? `<article class="history-card history-random" role="group"><header><time>${record.date}</time><span class="history-mode">全站推荐</span><em>${record.status}</em></header>${coverConfig(record, index)}<div class="history-metrics"><button class="history-audience-metric" data-action="open-audience" data-audience-tab="shown" data-audience-source="record" data-audience-index="${index}" aria-label="查看 ${record.shown} 位已展示用户"><span>已展示人数 <i>›</i></span><strong>${record.shown}</strong><small>人</small></button><button class="history-audience-metric" data-action="open-audience" data-audience-tab="visitors" data-audience-source="record" data-audience-index="${index}" aria-label="查看 ${record.visitors} 位看过封面的用户"><span>访客数 <i>›</i></span><strong>${record.visitors}</strong><small>人</small></button></div>${partnerSummary(record, 'record', index, 'ended')}<footer><button class="history-copy" data-action="copy-record">复制本次条件</button><button class="history-repeat" data-action="repeat-random" data-record-index="${index}">再次推荐</button></footer></article>`
+    : `<article class="history-card history-designated" role="group"><header><time>${record.date}</time><span class="history-mode">仅指定语伴</span><em class="${partnerStats(record).shown ? 'is-success' : 'is-muted'}">${record.status}</em></header>${coverConfig(record, index)}${partnerSummary(record, 'record', index, 'ended')}<footer><button class="history-copy" data-action="copy-record">复制本次条件</button><button class="history-repeat" data-action="repeat-designated" data-record-index="${index}">再次推荐</button></footer></article>`;
   return `<div class="overlay history-overlay"><section class="history-sheet${state.overlayEntered ? '' : ' is-entering'}" role="dialog" aria-modal="true" aria-labelledby="history-sheet-title"><i class="sheet-handle"></i><header class="history-sheet-head"><button data-action="overlay-close" aria-label="关闭">×</button><h2 id="history-sheet-title">投放记录</h2><span></span></header><main class="history-list" data-rule-target="records">${anchor('records', '7')}${anchor('records', '8')}${state.records.map(recordCard).join('')}</main></section></div>`;
 }
 
@@ -314,8 +347,8 @@ function renderActiveTasksSheet() {
   const taskCard = (task, index) => {
     const copy = taskCopy(task);
     const imageClass = task.photoSource === 'album' ? `is-album style-${task.style}` : 'is-avatar';
-    if (task.type !== 'random') return `<article class="active-task-card active-designated-card"><button class="active-task-preview" data-action="open-preview" data-preview-source="task" data-preview-index="${index}" aria-label="预览 ${task.name} 的开屏效果"><i class="history-cover-preview ${imageClass}"></i><span><strong>开屏预览</strong><small>${copy.detail}</small></span><em>预览</em><i class="chevron">›</i></button><button class="active-partner-info" data-action="open-partner-info" data-name="${task.name}" data-initial="${task.name?.[0] || ''}" data-class="${task.name === 'Mia' ? 'mia' : 'noah'}" data-active="true"><span><small>展示对象</small><strong>${task.name}</strong></span><em>${copy.title}</em><i class="chevron">›</i></button></article>`;
-    return `<article class="active-task-card active-random-card"><button class="active-task-preview" data-action="open-preview" data-preview-source="task" data-preview-index="${index}" aria-label="预览随机推荐开屏效果"><i class="history-cover-preview ${imageClass}"></i><span><strong>随机推荐</strong><small>正在向匹配用户推荐</small></span><em>${copy.title}</em><i class="chevron">›</i></button><div class="active-live-metrics"><button data-action="open-audience" data-audience-tab="shown" data-audience-source="task" data-audience-index="${index}" aria-label="查看 ${task.shown} 位已展示用户"><small>已展示人数 <i>›</i></small><strong>${task.shown}<i> / ${task.total} 人</i></strong></button><button data-action="open-audience" data-audience-tab="visitors" data-audience-source="task" data-audience-index="${index}" aria-label="查看 ${task.visitors} 位看过封面的用户"><small>访客数 <i>›</i></small><strong>${task.visitors}<i> 人</i></strong></button></div></article>`;
+    if (task.type !== 'random') return `<article class="active-task-card active-designated-card"><button class="active-task-preview" data-action="open-preview" data-preview-source="task" data-preview-index="${index}" aria-label="预览开屏效果"><i class="history-cover-preview ${imageClass}"></i><span><strong>仅指定语伴</strong><small>${copy.detail}</small></span><em>预览</em><i class="chevron">›</i></button>${partnerSummary(task, 'task', index, 'active')}</article>`;
+    return `<article class="active-task-card active-random-card"><button class="active-task-preview" data-action="open-preview" data-preview-source="task" data-preview-index="${index}" aria-label="预览全站推荐开屏效果"><i class="history-cover-preview ${imageClass}"></i><span><strong>全站推荐</strong><small>正在向匹配的新朋友推荐</small></span><em>${copy.title}</em><i class="chevron">›</i></button><div class="active-live-metrics"><button data-action="open-audience" data-audience-tab="shown" data-audience-source="task" data-audience-index="${index}" aria-label="查看 ${task.shown} 位已展示用户"><small>已展示人数 <i>›</i></small><strong>${task.shown}<i> / ${task.total} 人</i></strong></button><button data-action="open-audience" data-audience-tab="visitors" data-audience-source="task" data-audience-index="${index}" aria-label="查看 ${task.visitors} 位看过封面的用户"><small>访客数 <i>›</i></small><strong>${task.visitors}<i> 人</i></strong></button></div>${partnerSummary(task, 'task', index, 'active')}</article>`;
   };
   return `<div class="overlay history-overlay"><section class="active-tasks-sheet${state.overlayEntered ? '' : ' is-entering'}" role="dialog" aria-modal="true" aria-labelledby="active-tasks-title"><i class="sheet-handle"></i><header class="history-sheet-head"><button data-action="overlay-close" aria-label="关闭">×</button><h2 id="active-tasks-title">投放详情</h2><span></span></header><main class="active-tasks-list"><p>${state.activeTasks.length > 1 ? `进行中（${state.activeTasks.length}）` : '进行中'}</p>${state.activeTasks.map(taskCard).join('')}</main></section></div>`;
 }
@@ -354,6 +387,7 @@ function overlay() {
   if (state.overlay === 'records') return renderHistorySheet();
   if (state.overlay === 'active-tasks') return renderActiveTasksSheet();
   if (state.overlay === 'audience') return renderAudienceSheet();
+  if (state.overlay === 'partner-status') return renderPartnerStatusSheet();
   if (state.overlay === 'completion') return renderCompletionNotice();
   if (state.overlay === 'custom-audience') return renderCustomAudienceSheet();
   if (state.overlay === 'photo') return `<div class="overlay"><div class="sheet${enterClass}"><i class="sheet-handle"></i><h3>请选择照片</h3><button class="sheet-action" data-action="photo-select" data-source="avatar">使用头像</button><button class="sheet-action" data-action="photo-select" data-source="album">拍照/相册</button><button class="sheet-action sheet-cancel" data-action="overlay-close">取消</button></div></div>`;
@@ -363,24 +397,30 @@ function overlay() {
   return '';
 }
 
+function renderPartnerStatusSheet() {
+  const items = state.partnerStatusItems || [];
+  return `<div class="overlay history-overlay"><section class="partner-status-sheet${state.overlayEntered ? '' : ' is-entering'}" role="dialog" aria-modal="true" aria-labelledby="partner-status-title"><i class="sheet-handle"></i><header class="history-sheet-head"><button data-action="partner-status-close" aria-label="关闭">×</button><h2 id="partner-status-title">指定语伴结果</h2><span></span></header><main class="partner-status-list"><p>每位语伴均独立展示 1 次</p>${items.map(partner => `<article><span class="avatar ${partner.className || ''}">${partner.initial || partner.name?.[0] || 'M'}</span><span><strong>${partner.name}</strong><small>${partner.status === '已展示' ? '已在打开 App 的第一眼看到你' : partner.status === '未展示' ? '本次结束前未打开 App' : `等待打开 App · 剩余 ${partner.remaining ?? 42} 小时`}</small></span><em class="${partner.status === '已展示' ? 'is-success' : partner.status === '未展示' ? 'is-muted' : ''}">${partner.status || '等待打开 App'}</em></article>`).join('')}</main></section></div>`;
+}
+
 function renderCompletionNotice() {
   const notice = state.completionNotice;
   if (!notice) return '';
   const isRandom = notice.type === 'random';
-  const isShown = notice.status === '已展示';
+  const partners = partnerStats(notice);
   const total = notice.total || selectedProduct('random')?.recommendCount || notice.shown || 0;
   const isComplete = notice.status === '投放完成' || notice.shown >= total;
   const duration = notice.duration || '06:00:00';
   const result = isRandom
     ? `<strong>${isComplete ? '这次亮相，让更多新朋友第一眼看到你' : '这次亮相先到这里，下次继续让更多新朋友看见你'}</strong>`
-    : `<strong>${isShown ? `${notice.name || '这位语伴'} 已在打开 App 的第一眼看到你` : `差一点点，${notice.name || '这位语伴'} 这次还没来得及看到你`}</strong>`;
+    : `<strong>${partners.shown ? `这次亮相，已被 ${partners.shown} 位语伴第一眼看见` : '这次亮相先到这里，下一次再创造相遇'}</strong>`;
   const metrics = isRandom
     ? `<div class="completion-metric"><span>展示人数</span><strong>${notice.shown}<small>${isComplete ? ' 人' : ` / ${total} 人`}</small></strong></div><div class="completion-metric"><span>投放时长</span><strong>${duration}</strong></div><div class="completion-metric"><span>访客数</span><strong>${notice.visitors}<small>人</small></strong></div>`
-    : `<div class="completion-metric"><span>展示对象</span><strong>${notice.name || '—'}</strong></div><div class="completion-metric"><span>投放状态</span><strong class="${isShown ? 'is-success' : 'is-muted'}">${notice.status || '—'}</strong></div><div class="completion-metric"><span>投放时长</span><strong>${duration}</strong></div>`;
+    : `<div class="completion-metric"><span>指定人数</span><strong>${partners.total}<small> 位</small></strong></div><div class="completion-metric"><span>已展示</span><strong>${partners.shown}<small> 位</small></strong></div><div class="completion-metric"><span>投放时长</span><strong>${duration}</strong></div>`;
   const repeatData = isRandom
     ? 'data-action="completion-repeat" data-mode="random"'
-    : `data-action="completion-repeat" data-mode="designated" data-name="${notice.name || ''}"`;
-  return `<div class="overlay completion-overlay"><section class="completion-sheet${state.overlayEntered ? '' : ' is-entering'}" role="dialog" aria-modal="true" aria-labelledby="completion-title"><i class="sheet-handle"></i><header class="completion-sheet-head"><button data-action="completion-close" aria-label="关闭">×</button><h2 id="completion-title">开屏推荐已结束</h2><span aria-hidden="true"></span></header><main class="completion-sheet-body"><article class="completion-result-card"><div class="completion-result-copy">${result}</div><div class="completion-type"><em>${isRandom ? '随机推荐' : '指定语伴'}</em></div><img class="completion-splash-ip" src="assets/completion-ip.png" alt="" aria-hidden="true"><div class="completion-result-metrics">${metrics}</div></article></main><footer class="completion-sheet-footer"><button class="completion-repeat" ${repeatData}>再次推荐</button></footer></section></div>`;
+    : 'data-action="completion-repeat" data-mode="designated"';
+  const partnerResult = partners.total ? partnerSummary(notice, 'completion', 0, 'ended') : '';
+  return `<div class="overlay completion-overlay"><section class="completion-sheet${state.overlayEntered ? '' : ' is-entering'}" role="dialog" aria-modal="true" aria-labelledby="completion-title"><i class="sheet-handle"></i><header class="completion-sheet-head"><button data-action="completion-close" aria-label="关闭">×</button><h2 id="completion-title">开屏推荐已结束</h2><span aria-hidden="true"></span></header><main class="completion-sheet-body"><article class="completion-result-card"><div class="completion-result-copy">${result}</div><div class="completion-type"><em>${isRandom ? '全站推荐' : '仅指定语伴'}</em></div><img class="completion-splash-ip" src="assets/completion-ip.png" alt="" aria-hidden="true"><div class="completion-result-metrics">${metrics}</div>${partnerResult}</article></main><footer class="completion-sheet-footer"><button class="completion-repeat" ${repeatData}>再次推荐</button></footer></section></div>`;
 }
 
 function downloadPreviewImage(task) {
@@ -608,8 +648,8 @@ function renderDemoTools() {
   const latest = state.activeTasks[0];
   const active = latest
     ? latest.type === 'random'
-      ? `随机 · ${latest.shown} / ${latest.total} 人`
-      : `指定 · ${latest.name} · ${latest.remaining} 小时`
+      ? `全站 · ${latest.shown} / ${latest.total} 人${partnerStats(latest).total ? ` + 指定 ${partnerStats(latest).total} 位` : ''}`
+      : `指定 · ${partnerStats(latest).total} 位 · ${latest.remaining} 小时`
     : '无';
   const notice = state.completionNotice ? '待查看' : '未显示';
   status.textContent = `进行中：${active} · 回访通知：${notice}`;
@@ -629,11 +669,22 @@ function showOverlay(type) {
 function addTask(type) {
   const product = selectedProduct(type);
   if (!product) return;
-  if (type === 'designated') {
-    state.selectedFriends.forEach((friend, index) => state.activeTasks.unshift({ id: Date.now() + index, type: 'designated', productId: product.id, productName: product.name, price: product.price, name: friend.name, shown: 0, remaining: 42, photoSource: state.photoSource, style: state.template, copy: state.copy }));
-    return;
-  }
-  state.activeTasks.unshift({ id: Date.now(), type: 'random', productId: product.id, productName: product.name, price: product.price, total: product.recommendCount, shown: Math.min(128, product.recommendCount), visitors: 9, remaining: 42, photoSource: state.photoSource, style: state.template, copy: state.copy });
+  const partners = state.selectedFriends.map(friend => ({ ...friend, status: '等待打开 App', remaining: 42 }));
+  state.activeTasks.unshift({
+    id: Date.now(),
+    type,
+    productId: product.id,
+    productName: product.name,
+    price: type === 'random' ? product.price + designatedPrice() : designatedPrice(),
+    total: type === 'random' ? product.recommendCount : 0,
+    shown: type === 'random' ? Math.min(128, product.recommendCount) : 0,
+    visitors: type === 'random' ? 9 : 0,
+    remaining: 42,
+    partners,
+    photoSource: state.photoSource,
+    style: state.template,
+    copy: state.copy
+  });
 }
 
 function finishLatest() {
@@ -641,14 +692,15 @@ function finishLatest() {
   if (!task) return;
   const duration = `${String(Math.max(0, 48 - (task.remaining ?? 48))).padStart(2, '0')}:00:00`;
   let record;
+  const partners = partnersOf(task).map((partner, index) => ({ ...partner, status: index % 3 === 2 ? '未展示' : '已展示', remaining: 0 }));
   if (task.type === 'random') {
     const shown = task.total || task.shown;
-    record = { type: 'random', date: '刚刚', shown, visitors: Math.max(task.visitors ?? 0, Math.round(shown * .07)), status: '投放完成', photoSource: task.photoSource, style: task.style };
+    record = { type: 'random', date: '刚刚', shown, visitors: Math.max(task.visitors ?? 0, Math.round(shown * .07)), status: '投放完成', partners, photoSource: task.photoSource, style: task.style };
   } else {
-    record = { type: 'designated', date: '刚刚', name: task.name, initial: task.name[0], className: task.name === 'Mia' ? 'mia' : 'noah', detail: '对方已打开 App 并看到你的开屏封面', status: '已展示', photoSource: task.photoSource, style: task.style };
+    record = { type: 'designated', date: '刚刚', status: partners.every(partner => partner.status === '已展示') ? '已展示' : '投放结束', partners, photoSource: task.photoSource, style: task.style };
   }
   state.records.unshift(record);
-  state.completionNotice = { type: record.type, status: record.status, shown: record.shown || 0, total: task.total || 0, visitors: record.visitors || 0, name: record.name || '', duration };
+  state.completionNotice = { type: record.type, status: record.status, shown: record.shown || 0, total: task.total || 0, visitors: record.visitors || 0, partners, duration };
   persistCompletionNotice(state.completionNotice);
 }
 
@@ -664,7 +716,10 @@ function simulateCompletion(type, status) {
       shown: isComplete ? 500 : 128,
       total: 500,
       visitors: isComplete ? 35 : 9,
-      duration: isComplete ? '06:00:00' : '48:00:00'
+      duration: isComplete ? '06:00:00' : '48:00:00',
+      partners: isComplete
+        ? [{ ...friendOptions[0], status: '已展示' }, { ...friendOptions[1], status: '已展示' }, { ...friendOptions[2], status: '未展示' }]
+        : [{ ...friendOptions[0], status: '已展示' }, { ...friendOptions[1], status: '未展示' }]
     }
     : {
       type: 'designated',
@@ -672,8 +727,10 @@ function simulateCompletion(type, status) {
       shown: 0,
       total: 0,
       visitors: 0,
-      name: 'Mia',
-      duration: isShown ? '06:00:00' : '48:00:00'
+      duration: isShown ? '06:00:00' : '48:00:00',
+      partners: isShown
+        ? [{ ...friendOptions[0], status: '已展示' }, { ...friendOptions[1], status: '已展示' }, { ...friendOptions[2], status: '未展示' }]
+        : [{ ...friendOptions[0], status: '未展示' }, { ...friendOptions[1], status: '未展示' }]
     };
   persistCompletionNotice(state.completionNotice);
   showOverlay('completion');
@@ -761,6 +818,27 @@ app.addEventListener('click', (event) => {
     showOverlay('audience');
     return;
   }
+  if (action === 'open-partner-status') {
+    const source = element.dataset.partnerSource;
+    const index = Number(element.dataset.partnerIndex || 0);
+    const item = source === 'task' ? state.activeTasks[index]
+      : source === 'record' ? state.records[index]
+        : source === 'detail' ? state.placementDetail
+          : state.completionNotice;
+    state.partnerStatusItems = partnersOf(item);
+    state.partnerStatusOrigin = source === 'record' ? 'records' : source === 'task' ? 'active-tasks' : source === 'detail' ? 'placement-detail' : 'completion';
+    showOverlay('partner-status');
+    return;
+  }
+  if (action === 'partner-status-close') {
+    const origin = state.partnerStatusOrigin;
+    state.partnerStatusItems = [];
+    state.partnerStatusOrigin = null;
+    if (origin === 'completion') showOverlay('completion');
+    else if (origin === 'placement-detail') { state.overlay = null; state.overlayEntered = true; render(); }
+    else showOverlay(origin === 'records' ? 'records' : 'active-tasks');
+    return;
+  }
   if (action === 'audience-tab') {
     state.audienceTab = element.dataset.audienceTab || 'shown';
     render();
@@ -806,12 +884,11 @@ app.addEventListener('click', (event) => {
   }
   if (action === 'completion-repeat') {
     const mode = element.dataset.mode;
+    const partners = partnersOf(state.completionNotice);
     state.completionNotice = null;
     persistCompletionNotice(null);
     state.mode = mode === 'designated' ? 'designated' : 'random';
-    state.selectedFriends = state.mode === 'designated' && element.dataset.name
-      ? [{ name: element.dataset.name, initial: element.dataset.name[0], className: element.dataset.name === 'Mia' ? 'mia' : 'noah' }]
-      : [];
+    state.selectedFriends = partners.map(({ name, initial, className }) => ({ name, initial, className }));
     state.selectedFriend = state.selectedFriends[0] || null;
     state.overlay = null;
     state.overlayEntered = true;
@@ -821,8 +898,8 @@ app.addEventListener('click', (event) => {
   if (action === 'nav') setView(element.dataset.target);
   if (action === 'open-records') showOverlay('records');
   if (action === 'copy-record') { state.overlay = null; state.overlayEntered = true; render(); }
-  if (action === 'repeat-random') { state.mode = 'random'; state.selectedFriend = null; state.selectedFriends = []; state.overlay = null; state.overlayEntered = true; render(); }
-  if (action === 'repeat-designated') { state.mode = 'designated'; state.selectedFriends = [{ name: element.dataset.name, initial: element.dataset.initial, className: element.dataset.class }]; state.selectedFriend = state.selectedFriends[0]; state.overlay = null; state.overlayEntered = true; render(); }
+  if (action === 'repeat-random') { const record = state.records[Number(element.dataset.recordIndex)]; state.mode = 'random'; state.selectedFriends = partnersOf(record).map(({ name, initial, className }) => ({ name, initial, className })); state.selectedFriend = state.selectedFriends[0] || null; state.overlay = null; state.overlayEntered = true; render(); }
+  if (action === 'repeat-designated') { const record = state.records[Number(element.dataset.recordIndex)]; state.mode = 'designated'; state.selectedFriends = partnersOf(record).map(({ name, initial, className }) => ({ name, initial, className })); state.selectedFriend = state.selectedFriends[0] || null; state.overlay = null; state.overlayEntered = true; render(); }
   if (action === 'close') { state.view = 'main'; render(); }
   if (action === 'mode') {
     if (element.dataset.mode === 'designated' && !selectedProduct('designated')) return;
@@ -867,10 +944,7 @@ app.addEventListener('click', (event) => {
     if (!state.templateSelected) { showOverlay('template'); return; }
     if (state.mode === 'designated' && !state.selectedFriends.length) { state.friendDraft = [...state.selectedFriends]; setView('friends'); return; }
     if (!state.agreed) { render(); return; }
-    if (state.mode === 'random') {
-      addTask('random');
-      if (state.selectedFriends.length) addTask('designated');
-    } else addTask('designated');
+    addTask(state.mode);
     showOverlay('created');
   }
   if (action === 'overlay-close') { state.overlay = null; state.overlayEntered = true; render(); }
@@ -1069,8 +1143,8 @@ document.querySelector('#reviewToggle').addEventListener('change', (event) => {
 
 document.querySelectorAll('[data-control]').forEach(button => button.addEventListener('click', () => {
   const control = button.dataset.control;
-  if (control === 'create-random') addTask('random');
-  if (control === 'create-designated') addTask('designated');
+  if (control === 'create-random') { state.selectedFriends = friendOptions.slice(0, 3).map(({ name, initial, className }) => ({ name, initial, className })); addTask('random'); }
+  if (control === 'create-designated') { state.selectedFriends = friendOptions.slice(0, 3).map(({ name, initial, className }) => ({ name, initial, className })); addTask('designated'); }
   if (control === 'completion-random-complete') return simulateCompletion('random', 'complete');
   if (control === 'completion-random-partial') return simulateCompletion('random', 'partial');
   if (control === 'completion-designated-shown') return simulateCompletion('designated', 'shown');
